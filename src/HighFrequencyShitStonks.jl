@@ -2,7 +2,7 @@ module HighFrequencyShitStonks
 
 import Base.String
 
-using HTTP, Discord, JSON, DataFrames, Dates, CSV, Plots
+using HTTP, Discord, JSON, DataFrames, Dates, CSV, Plots, FileIO, ORCA
 
 const MAX_MSG_LENGTH = 2000
 
@@ -29,8 +29,8 @@ function setup()
     end
 
 
-    # Initialize GR Plots backend
-    gr()
+    # Initialize Plotly Plots backend
+    plotly()
 
     # Start Client
     c = Client(SETTINGS["TOKEN"])
@@ -94,7 +94,19 @@ function volume(c::Client, m::Message, emoji::Vector{AbstractString})
     temp_png = joinpath("data", "temp.png")
     @debug "Temporary png file location:\n$temp_png"
 
-    png(plot(rand(10), label=emoji), temp_png)
+    p = plot(rand(10), legend=false);
+
+    i = 0.0
+    j = 0.0
+
+    for e in emoji
+        e_img = FileIO.load(download(EMOJI[e]))
+        p = put_emoji_on_plot(p, e_img, i, j, 1.0);
+        i += 1
+        i > 9 ? (i -= 10; j += 1) : nothing
+    end
+
+    png(p, temp_png)
 
     @debug "Temporary file exists?:$(isfile(temp_png))"
 
@@ -133,5 +145,18 @@ end
 
 Base.String(e::Discord.Emoji) = "<$(e.animated ? "a" : "")$(e.require_colons || e.animated ? ":" : "")$(e.name):$(Int(e.id))>"
 mention(id::Int) = "<@$id>"
+
+
+# TODO: Add type info to emoji (Array{RGB, 2}?)
+function put_emoji_on_plot(p::Plots.Plot, emoji, x_pos::Float64, y_pos::Float64, scale::Float64; aspect_ratio=1.0) where {T}
+
+    (dx, dy) = size(emoji)
+
+    return plot!(p, 
+            range(x_pos,x_pos+scale;length=dx), 
+            range(y_pos,y_pos+scale;length=dy), 
+            emoji[end:-1:1, :], yflip = false, aspect_ratio=aspect_ratio)
+
+end
 
 end
