@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="utf-8"?>
+<queryresult success="true" error="false" numpods="8" datatypes="" timedout="" timedoutpods="" timing="2.952" parsetiming="0.117" parsetimedout="false" recalculate="" id="MSP70311h60c352ii74669100001fbi55cfb30f64h8" host="https://www4f.wolframalpha.com" server="48" related="https://www4f.wolframalpha.com/api/v1/relatedQueries.jsp?id=MSPa70321h60c352ii746691000010b8ed464h2bdb288130123784979259853" version="2.6">
+ <pod title="Input" scanner="Identity" id="Input" position="100" error="false" numsubpods="1">
+  <subpod title="">
+   <img src="https://www4f.wolframalpha.com/Calculate/MSP/MSP70331h60c352ii74669100005cg65h2ibfgf9bg1?MSPStoreType=image/gif&amp;s=48" alt="π" title="π" width="7" height="18" type="Default" themes="1,2,3,4,5,6,7,8,9,10,11,12" colorinvertable="true"/>
+   <plaintext>π</plaintext>
+  </subpod>
+  <expressiontypes count="1">
+   <expressiontype name="Default"/>
+  </expressiontypes>
+ </pod>
+ <pod title="Decimal approximation" scanner="Numeric" id="DecimalApproximation" position="200" error="false" numsubpods="1" primary="true">
+  <subpod title="">
+   <img src="https://www4f.wolframalpha.com/Calculate/MSP/MSP70341h60c352ii7466910000583e10982dhg5387?MSPStoreType=image/gif&amp;s=48" alt="3.141592653589793238462643383279502884197169399375105820974..." title="3.141592653589793238462643383279502884197169399375105820974..." width="491" height="22" type="Default" themes="1,2,3,4,5,6,7,8,9,10,11,12" colorinvertable="true"/>
+   <plaintext>3.141592653589793238462643383279502884197169399375105820974...</plaintext>
+  </subpod>
+  <expressiontypes count="1">
+   <expressiontype name="Default"/>
+  </expressiontypes>
+  <states count="1">
+   <state name="More digits" input="DecimalApproximation__More digits"/>
+  </states>
+ </pod>
+ <pod title="Property" scanner="Numeric" id="Property" position="300" error="false" numsubpods="1">
+  <subpod title="">
+   <img src="https://www4f.wolframalpha.com/Calculate/MSP/MSP70351h60c352ii74669100003f1ab57hcia44g5a?MSPStoreType=image/gif&amp;s=48" alt="π is a transcendental number" title="π is a transcendental number" width="192" height="18" type="Default" themes="1,2,3,4,5,6,7,8,9,10,11,12" colorinvertable="true"/>
+   <plaintext>π is a transcendental number</plaintext>
+  </subpod>
+  <expressiontypes count="1">
+   <expressiontype name="Default"/>
+  </expressiontypes>
+ </pod>
+ <pod title="Number line" scanner="NumberLine" id="NumberLine" position="400" error="false" numsubpods="1">
+  <subpod title="">
+   <img src="https://www4f.wolframalpha.com/Calculate/MSP/MSP70361h60c352ii746691000033i5cheh13d5h8ad?MSPStoreType=image/gif&amp;s=48" alt="Number line" title="" width="330" height="58" type="1DMathPlot_1" themes="1,2,3,4,5,6,7,8,9,10,11,12" colorinvertable="true"/>
+   <plaintext/>
+  </subpod>
+  <expressiontypes count="1">
+   <expressiontype name="1DMathPlot"/>
+  </expressiontypes>
+ </pod>
+ <pod title="Continued fraction" scanner="ContinuedFraction" id="ContinuedFraction" position="500" error="false" numsubpods="1">
+  <subpod title="">
+   <img src="https://www4f.wolframalpha.com/Calculate/MSP/MSP70371h60c352ii74669100005d7dcig0i0bfag8g?MSPStoreType=image/gif&amp;s=48" alt="[3; 7, 15, 1, 292, 1, 1, 1, 2, 1, 3, 1, 14, 2, 1, 1, 2, 2, 2, 2, 1, 84, 2, 1, 1, 15, 3, 13, 1, ...]" title="[3; 7, 15, 1, 292, 1, 1, 1, 2, 1, 3, 1, 14, 2, 1, 1, 2, 2, 2, 2, 1, 84, 2, 1, 1, 15, 3, 13, 1, ...]" width="548" height="20" type="Default" themes="1,2,3,4,5,6,7,8,9,10,11,12" colorinvertable="true"/>
+   <plaintext>[3; 7, 15, 1, 292, 1, 1, 1, 2, 1, 3, 1, 14, 2, 1, 1, 2, 2, 2, 2, 1, 84, 2, 1, 1, 15, 3, 13, 1, ...]</plaintext>
+  </subpod>
+  <expressiontypes count="1">
+   <expressiontype name="Default"/>
+  </expressiontypes>
+  <states count="2">
+   <state name="More terms" input="ContinuedFraction__More terms"/>
+   <state name="Fraction form" input="ContinuedFraction__Fraction form"/>
+  </states>
+ </pod>
+ <pod title="Alternative representations" scanner="MathematicalFunctionData" id="AlternativeRepresentations:MathematicalFunctionIdentityData" position="600" error="false" numsubpods="3">
+  <subpod title="">
+   <img src="https://www4f.wolframalpha.com/Calculate/MSP/MSP70381h60c352ii74669100000h561a06g9422dac?MSPStoreType=image/gif&amp;s=48" alt="π = 180 °" title="π = 180 °" width="57" height="28" type="Default" themes="1,2,3,4,5,6,7,8,9,10,11,12" colorinvertable="true"/>
+   <plaintext>π = 180 °</plaintext>
+  </subpod>
+  <subpod title="">
+   <img src="https://www4f.wolframalpha.com/Calculate/MSP/MSP70391h60c352ii746691000023ageb2f30dhicg4?MSPStoreType=image/gif&amp;s=48" alt="π = -i log(-1)" title="π = -i log(-1)" width="86" height="28" type="Default" themes="1,2,3,4,5,6,7,8,9,10,11,12" colorinvertable="true"/>
+   <plaintext>π = -i log(-1)</plaintext>
+  </subpod>
+  <subpod title="">
+   <img src="https://www4f.wolframalpha.com/Calculate/MSP/MSP70401h60c352ii746691000022032c9d74b8gde0?MSPStoreType=image/gif&amp;s=48" alt="π = cos^(-1)(-1)" title="π = cos^(-1)(-1)" width="84" height="28" type="Default" themes="1,2,3,4,5,6,7,8,9,10,11,12" colorinvertable="true"/>
+   <plaintext>π = cos^(-1)(-1)</plaintext>
+  </subpod>
+  <expressiontypes count="3">
+   <expressiontype name="Default"/>
+   <expressiontype name="Default"/>
+   <expressiontype name="Default"/>
+  </expressiontypes>
+  <states count="1">
+   <state name="More" input="AlternativeRepresentations:MathematicalFunctionIdentityData__More"/>
+  </states>
+  <infos count="4">
+   <info text="log(x) is the natural logarithm">
+    <img src="https://www4f.wolframalpha.com/Calculate/MSP/MSP70411h60c352ii74669100003315c3g2i4c8308d?MSPStoreType=image/gif&amp;s=48" alt="log(x) is the natural logarithm" title="log(x) is the natural logarithm" width="196" height="18"/>
+    <link url="http://reference.wolfram.com/language/ref/Log.html" text="Documentation" title="Mathematica"/>
+    <link url="http://functions.wolfram.com/ElementaryFunctions/Log" text="Properties" title="Wolfram Functions Site"/>
+    <link url="http://mathworld.wolfram.com/NaturalLogarithm.html" text="Definition" title="MathWorld"/>
+   </info>
+   <info text="i is the imaginary unit">
+    <img src="https://www4f.wolframalpha.com/Calculate/MSP/MSP70421h60c352ii74669100001372ee88f1g1hg22?MSPStoreType=image/gif&amp;s=48" alt="i is the imaginary unit" title="i is the imaginary unit" width="146" height="18"/>
+    <link url="http://reference.wolfram.com/language/ref/I.html" text="Documentation" title="Documentation"/>
+    <link url="http://mathworld.wolfram.com/i.html" text="Definition" title="MathWorld"/>
+   </info>
+   <info text="cos^(-1)(x) is the inverse cosine function">
+    <img src="https://www4f.wolframalpha.com/Calculate/MSP/MSP70431h60c352ii746691000017g8i90368ida3aa?MSPStoreType=image/gif&amp;s=48" alt="cos^(-1)(x) is the inverse cosine function" title="cos^(-1)(x) is the inverse cosine function" width="243" height="18"/>
+    <link url="http://reference.wolfram.com/language/ref/ArcCos.html" text="Documentation" title="Mathematica"/>
+    <link url="http://functions.wolfram.com/ElementaryFunctions/ArcCos" text="Properties" title="Wolfram Functions Site"/>
+    <link url="http://mathworld.wolfram.com/InverseCosine.html" text="Definition" title="MathWorld"/>
+   </info>
+   <info>
+    <link url="http://functions.wolfram.com/Constants/Pi/27/ShowAll.html" text="More information"/>
+   </info>
+  </infos>
+ </pod>
+ <pod title="Series representations" scanner="MathematicalFunctionData" id="SeriesRepresentations:MathematicalFunctionIdentityData" position="700" error="false" numsubpods="3">
+  <subpod title="">
+   <img src="https://www4f.wolframalpha.com/Calculate/MSP/MSP70441h60c352ii74669100001881bd2c4b879470?MSPStoreType=image/gif&amp;s=48" alt="π = 4 sum_(k=0)^∞ (-1)^k/(2 k + 1)" title="π = 4 sum_(k=0)^∞ (-1)^k/(2 k + 1)" width="102" height="57" type="Default" themes="1,2,3,4,5,6,7,8,9,10,11,12" colorinvertable="true"/>
+   <plaintext>π = 4 sum_(k=0)^∞ (-1)^k/(2 k + 1)</plaintext>
+  </subpod>
+  <subpod title="">
+   <img src="https://www4f.wolframalpha.com/Calculate/MSP/MSP70451h60c352ii74669100001b6f8a712e3dh2ie?MSPStoreType=image/gif&amp;s=48" alt="π = -2 + 2 sum_(k=1)^∞ 2^k/binomial(2 k, k)" title="π = -2 + 2 sum_(k=1)^∞ 2^k/binomial(2 k, k)" width="127" height="70" type="Default" themes="1,2,3,4,5,6,7,8,9,10,11,12" colorinvertable="true"/>
+   <plaintext>π = -2 + 2 sum_(k=1)^∞ 2^k/binomial(2 k, k)</plaintext>
+  </subpod>
+  <subpod title="">
+   <img src="https://www4f.wolframalpha.com/Calculate/MSP/MSP70461h60c352ii7466910000355aac94bfe5dec4?MSPStoreType=image/gif&amp;s=48" alt="π = sum_(k=0)^∞ (50 k - 6)/(2^k binomial(3 k, k))" title="π = sum_(k=0)^∞ (50 k - 6)/(2^k binomial(3 k, k))" width="103" height="67" type="Default" themes="1,2,3,4,5,6,7,8,9,10,11,12" colorinvertable="true"/>
+   <plaintext>π = sum_(k=0)^∞ (50 k - 6)/(2^k binomial(3 k, k))</plaintext>
+  </subpod>
+  <expressiontypes count="3">
+   <expressiontype name="Default"/>
+   <expressiontype name="Default"/>
+   <expressiontype name="Default"/>
+  </expressiontypes>
+  <states count="1">
+   <state name="More" input="SeriesRepresentations:MathematicalFunctionIdentityData__More"/>
+  </states>
+  <infos count="2">
+   <info text="binomial(n, m) is the binomial coefficient">
+    <img src="https://www4f.wolframalpha.com/Calculate/MSP/MSP70471h60c352ii74669100005feda424022heb35?MSPStoreType=image/gif&amp;s=48" alt="binomial(n, m) is the binomial coefficient" title="binomial(n, m) is the binomial coefficient" width="202" height="36"/>
+    <link url="http://reference.wolfram.com/language/ref/Binomial.html" text="Documentation" title="Mathematica"/>
+    <link url="http://functions.wolfram.com/GammaBetaErf/Binomial" text="Properties" title="Wolfram Functions Site"/>
+    <link url="http://mathworld.wolfram.com/BinomialCoefficient.html" text="Definition" title="MathWorld"/>
+   </info>
+   <info>
+    <link url="http://functions.wolfram.com/Constants/Pi/06/ShowAll.html" text="More information"/>
+   </info>
+  </infos>
+ </pod>
+ <pod title="Integral representations" scanner="MathematicalFunctionData" id="IntegralRepresentations:MathematicalFunctionIdentityData" position="800" error="false" numsubpods="3">
+  <subpod title="">
+   <img src="https://www4f.wolframalpha.com/Calculate/MSP/MSP70481h60c352ii74669100004407bi21ggf2a36f?MSPStoreType=image/gif&amp;s=48" alt="π = 2 integral_0^∞ 1/(t^2 + 1) dt" title="π = 2 integral_0^∞ 1/(t^2 + 1) dt" width="119" height="44" type="Default" themes="1,2,3,4,5,6,7,8,9,10,11,12" colorinvertable="true"/>
+   <plaintext>π = 2 integral_0^∞ 1/(t^2 + 1) dt</plaintext>
+  </subpod>
+  <subpod title="">
+   <img src="https://www4f.wolframalpha.com/Calculate/MSP/MSP70491h60c352ii74669100002i111hbh7dbbgca7?MSPStoreType=image/gif&amp;s=48" alt="π = 4 integral_0^1 sqrt(1 - t^2) dt" title="π = 4 integral_0^1 sqrt(1 - t^2) dt" width="129" height="43" type="Default" themes="1,2,3,4,5,6,7,8,9,10,11,12" colorinvertable="true"/>
+   <plaintext>π = 4 integral_0^1 sqrt(1 - t^2) dt</plaintext>
+  </subpod>
+  <subpod title="">
+   <img src="https://www4f.wolframalpha.com/Calculate/MSP/MSP70501h60c352ii74669100005054cc4ff2e3927h?MSPStoreType=image/gif&amp;s=48" alt="π = 2 integral_0^∞ sin(t)/t dt" title="π = 2 integral_0^∞ sin(t)/t dt" width="117" height="44" type="Default" themes="1,2,3,4,5,6,7,8,9,10,11,12" colorinvertable="true"/>
+   <plaintext>π = 2 integral_0^∞ sin(t)/t dt</plaintext>
+  </subpod>
+  <expressiontypes count="3">
+   <expressiontype name="Default"/>
+   <expressiontype name="Default"/>
+   <expressiontype name="Default"/>
+  </expressiontypes>
+  <states count="1">
+   <state name="More" input="IntegralRepresentations:MathematicalFunctionIdentityData__More"/>
+  </states>
+  <infos count="1">
+   <info>
+    <link url="http://functions.wolfram.com/Constants/Pi/07/ShowAll.html" text="More information"/>
+   </info>
+  </infos>
+ </pod>
+ <assumptions count="1">
+  <assumption type="Clash" word="pi" template="Assuming &quot;${word}&quot; is ${desc1}. Use as ${desc2} instead" count="5">
+   <value name="NamedConstant" desc="a mathematical constant" input="*C.pi-_*NamedConstant-"/>
+   <value name="Character" desc="a character" input="*C.pi-_*Character-"/>
+   <value name="MathWorld" desc=" referring to a mathematical definition" input="*C.pi-_*MathWorld-"/>
+   <value name="Word" desc="a word" input="*C.pi-_*Word-"/>
+   <value name="Movie" desc="a movie" input="*C.pi-_*Movie-"/>
+  </assumption>
+ </assumptions>
+</queryresult>
