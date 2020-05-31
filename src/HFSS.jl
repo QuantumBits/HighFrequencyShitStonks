@@ -2,7 +2,7 @@ module HFSS
 
 import Base.String
 
-using HTTP, Discord, JSON, DataFrames, CSV, Dates, Plots, FileIO, ORCA, Cairo, Rsvg
+using HTTP, Discord, JSON, DataFrames, CSV, Dates, Plots, FileIO, ORCA, Cairo, Rsvg, Gadfly, Formatting
 using ColorTypes, FixedPointNumbers, DelimitedFiles, Printf
 
 const MAX_MSG_LENGTH = 2000
@@ -30,7 +30,7 @@ function setup()
     end
 
     # Initialize Plotly Plots backend
-    plotly()
+    gr()
 
     # Start Client
     c = Client(SETTINGS["TOKEN"])
@@ -52,6 +52,11 @@ function setup()
     add_command!(c, :volume,
         (c, m, msg) -> volume(c, m, parse_emoji(msg));
         pattern=r"^(?i)hfss volume\s+(.*)",
+        allowed=[Discord.Snowflake(SETTINGS["HFSS_ADMIN_ID"])])
+
+    add_command!(c, :portfolio,
+        (c, m) -> portfolio(c, m);
+        pattern=r"^(?i)hfss portfolio$",
         allowed=[Discord.Snowflake(SETTINGS["HFSS_ADMIN_ID"])])
 
     add_command!(c, :hfss_echo,
@@ -193,14 +198,69 @@ function echo(c::Client, m::Message, msg::AbstractString)
 end
 
 # https://docs.juliaplots.org/latest/generated/plotly/#plotly-ref23-1
+function portfolio(c::Client, m::Message)
+
+    temp_png = joinpath("data", "portfolio_$(m.author.username)_$(m.author.id).png")
+    @debug "Temporary png file location:\n$temp_png"
+
+    temp_svg = joinpath("data", "portfolio_$(m.author.username)_$(m.author.id).svg")
+    @debug "Temporary svg file location:\n$temp_svg"
+
+    N = 100
+    account = DataFrame(Emoji=rand(keys(HFSS.EMOJI), N), Volume=10.0.^rand(0:6,N).*rand(N), Price=10.0.^rand(0:9,N).*rand(N))
+
+    account[:Value] = account[:Price] .* account[:Volume]
+
+    sort!(account, :Value; rev=true)
+    N_bar = 10
+    p_bar = Plots.bar(account[1:N_bar, :Value], 
+        xticks = (1:N_bar, account[1:N_bar, :Emoji]),
+        legend = false);
+    
+    sort!(account, :Volume; rev=true)
+    p_pie = Plots.pie(account[:Emoji], account[:Volume],
+        legend = false)
+
+    p = Plots.plot(p_bar, p_pie)
+
+    Plots.png(p, temp_png)
+    @debug "Temporary png file exists?:$(isfile(temp_png))"
+
+    Plots.svg(p, temp_svg)
+    @debug "Temporary svg file exists?:$(isfile(temp_svg))"
+
+
+    account = account[1:min(size(account, 1), 20), :]
+    summary = [@sprintf("`%1.15E × %1.15E = %1.15E`%s",r[:Volume], r[:Price], r[:Value], r[:Emoji]) for r in eachrow(account)]
+
+    msg = Embed(;
+        title = "$(m.author.username)'s Portfolio",
+        description = join(summary, '\n'),
+        url = "https://svgshare.com/i/LdU.svg")
+
+    Discord.create_message(c, m.channel_id; embed=msg, file=open(temp_png))
+    @debug "Replying with Embed:\n$msg"
+    @debug "Replying with File:\n$temp_svg"
+
+    # reply(c, m, msg);
+
+
+end
+
+
+# https://docs.juliaplots.org/latest/generated/plotly/#plotly-ref23-1
 function plot_pie(c::Client, m::Message, emoji::Vector{AbstractString})
 
     temp_png = joinpath("data", "temp_pie.png")
     @debug "Temporary png file location:\n$temp_png"
 
-    account = sort(DataFrame(CSV.File("data/george_data.csv")), :Price; rev=true)
+    account = DataFrame(CSV.File("data/george_data.csv"))
 
     account[:Value] = account[:Price] .* account[:Volume]
+
+    sort!(account, :Value; rev=true)
+
+    account = account[1:min(size(account, 1), 20), :]
 
     p = pie(account[:Emoji], account[:Volume], title = "$(m.author.username)'s Portfolio")
 
@@ -217,7 +277,7 @@ function plot_pie(c::Client, m::Message, emoji::Vector{AbstractString})
     summary = ["$(r[:Emoji]) : `$(@sprintf("%8.0f @ \$%16.2f = \$%16.2f", r[:Volume], r[:Price], r[:Value]))`" for r in eachrow(account)]
 
     msg = Embed(;
-    title = "<@$(m.author.id)>'s Portfolio",
+    title = "$(m.author.username)'s Portfolio",
     description = join(summary, '\n'),
         image = EmbedImage(;url = img_url))
 
@@ -273,7 +333,7 @@ function volume(c::Client, m::Message, emoji::Vector{AbstractString})
         @debug "Emoji name : $e"
         @debug "Emoji image: $(EMOJI[e])"
         @debug "Emoji type : $(typeof(e_img))"
-        p = put_emoji_on_plot(p, EmojiImageArray(e_img), i, j, 1.0);
+        p = put_emoji_on_plot(p, EmojiImageArray(e_img), i, j, 2.0);
         i += 1
         i > 9 ? (i -= 10; j += 1) : nothing
     end
@@ -298,41 +358,6 @@ function volume(c::Client, m::Message, emoji::Vector{AbstractString})
 end
 
 #= UTILITIES =#
-
-function upload2imgur(filename::AbstractString)
-
-    @debug "Image to uploade to imgur: $filename"
-
-    if contains(filename, ".svg")
-        
-        @debug "File is .svg: $filename"
-        
-        new_height = 1024
-        r = Rsvg.handle_new_from_file(filename)
-        d = Rsvg.handle_get_dimensions(r)
-        scalingfactor = new_height / d.height
-        cs = Cairo.CairoImageSurface(round(Int,d.width * scalingfactor), new_height, Cairo.FORMAT_ARGB32)
-        c = Cairo.CairoContext(cs)
-        Cairo.scale(c, scalingfactor, scalingfactor)
-        Rsvg.handle_render_cairo(c,r)
-
-        filename_png = replace(filename,(".svg"=>".png"))
-
-        Cairo.write_to_png(cs,filename_png)
-    else
-        filename_png = filename
-    end
-
-
-
-    req = HTTP.request("POST", "https://api.imgur.com/3/image", ["Authorization" => "Client-ID $(SETTINGS["IMGUR_CLIENT_ID"])"], read(filename_png))
-
-    req_json = JSON.parse(String(req.body))
-
-    return req_json["data"]["link"]
-
-end
-
 
 function put_emoji_on_plot(p::Plots.Plot, emoji::EmojiImageArray, x_pos::Float64, y_pos::Float64, scale::Float64; aspect_ratio=1.0)
 
