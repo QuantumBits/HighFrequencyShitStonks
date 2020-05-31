@@ -1,2 +1,6 @@
 config/
 .vscode/
+*.png
+*.svg
+*.csv
+*.txt
