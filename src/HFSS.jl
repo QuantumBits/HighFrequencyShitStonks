@@ -2,7 +2,7 @@ module HFSS
 
 import Base.String
 
-using HTTP, Discord, JSON, DataFrames, CSV, Dates, Plots, FileIO, ORCA, Cairo, Rsvg, Gadfly, Formatting
+using HTTP, Discord, JSON, DataFrames, CSV, Dates, Plots, FileIO
 using ColorTypes, FixedPointNumbers, DelimitedFiles, Printf
 
 const MAX_MSG_LENGTH = 2000
@@ -44,16 +44,6 @@ function setup()
 
     #= Admin commands =#
 
-    add_command!(c, :pie,
-        (c, m, msg) -> plot_pie(c, m, parse_emoji(msg));
-        pattern=r"^(?i)hfss account\s+(.*)",
-        allowed=[Discord.Snowflake(SETTINGS["HFSS_ADMIN_ID"])])
-
-    add_command!(c, :volume,
-        (c, m, msg) -> volume(c, m, parse_emoji(msg));
-        pattern=r"^(?i)hfss volume\s+(.*)",
-        allowed=[Discord.Snowflake(SETTINGS["HFSS_ADMIN_ID"])])
-
     add_command!(c, :portfolio,
         (c, m) -> portfolio(c, m);
         pattern=r"^(?i)hfss portfolio$",
@@ -64,13 +54,8 @@ function setup()
         pattern=r"^(?i)hfss echo\s+([\s\S]*)",
         allowed=[Discord.Snowflake(SETTINGS["HFSS_ADMIN_ID"])])
 
-    add_command!(c, :ticker,
-        (c,m) -> tickerALLTheThings(c,m) ;
-        pattern=r"^(?i)hfss ticker ALL THE THINGS$",
-        allowed=[Discord.Snowflake(SETTINGS["HFSS_ADMIN_ID"])])
-
     add_command!(c, :read_prices,
-        (c,m,msg) -> read_prices(c, m, parse_emoji(msg));
+        (c,m,msg) -> read_prices(c, m, msg);
         pattern=r"^(?i)hfss read (.*)",
         allowed=[Discord.Snowflake(SETTINGS["HFSS_ADMIN_ID"])])
 
@@ -106,11 +91,9 @@ function store_prices(df::DataFrame)
 
 end
 
-function read_prices(c::Client, m::Message, emoji::Vector{AbstractString})
+function read_prices(c::Client, m::Message, msg::AbstractString)
 
-    for e in emoji
-        Discord.reply(c, m, e)
-    end
+    Discord.reply(c, m, msg)
 
 end
 
@@ -151,16 +134,6 @@ function read_emoji_standard(emoji_dict::Dict{AbstractString, AbstractString}, e
     end
 
     return emoji_dict
-
-end
-
-function tickerALLTheThings(c::Client, m::Message)
-
-    chunks = split_message(join(keys(EMOJI), " "))
-
-    for chunk in chunks
-        reply(c, m, "!stonks ticker $chunk)")
-    end
 
 end
 
@@ -242,133 +215,6 @@ function portfolio(c::Client, m::Message)
     @debug "Replying with Embed:\n$msg"
     @debug "Replying with File:\n$temp_svg"
 
-    # reply(c, m, msg);
-
-
 end
-
-
-# https://docs.juliaplots.org/latest/generated/plotly/#plotly-ref23-1
-function plot_pie(c::Client, m::Message, emoji::Vector{AbstractString})
-
-    temp_png = joinpath("data", "temp_pie.png")
-    @debug "Temporary png file location:\n$temp_png"
-
-    account = DataFrame(CSV.File("data/george_data.csv"))
-
-    account[:Value] = account[:Price] .* account[:Volume]
-
-    sort!(account, :Value; rev=true)
-
-    account = account[1:min(size(account, 1), 20), :]
-
-    p = pie(account[:Emoji], account[:Volume], title = "$(m.author.username)'s Portfolio")
-
-    Plots.png(p, temp_png)
-
-    @debug "Temporary file exists?:$(isfile(temp_png))"
-
-    img_url = upload2imgur(temp_png)
-    @debug "imgur URL: $img_url"
-
-    # rm(temp_png)
-    @debug "Removing temporary file"
-
-    summary = ["$(r[:Emoji]) : `$(@sprintf("%8.0f @ \$%16.2f = \$%16.2f", r[:Volume], r[:Price], r[:Value]))`" for r in eachrow(account)]
-
-    msg = Embed(;
-    title = "$(m.author.username)'s Portfolio",
-    description = join(summary, '\n'),
-        image = EmbedImage(;url = img_url))
-
-    reply(c, m, msg);
-    @debug "Replying with Embed:\n$msg"
-
-
-end
-
-# https://docs.juliaplots.org/latest/generated/plotly/#plotly-ref36-1
-function plot_portfolio(c::Client, m::Message, emoji::Vector{AbstractString})
-
-    temp_png = joinpath("data", "temp_portfolio.png")
-    @debug "Temporary png file location:\n$temp_png"
-
-    p = portfoliocomposition(rand(10, length(emoji)), rand(10, length(emoji)), labels=permutedims(emoji));
-
-    png(p, temp_png)
-
-    @debug "Temporary file exists?:$(isfile(temp_png))"
-
-    img_url = upload2imgur(temp_png)
-    @debug "imgur URL: $img_url"
-
-    rm(temp_png)
-    @debug "Removing temporary file"
-
-    msg = Embed(;
-        title = "Portfolio Composition: $(join(emoji," "))",
-        description = "Link(s) to $(join(emoji," ")) image: $([ EMOJI[e] for e in emoji])",
-        image = EmbedImage(;url = img_url))
-
-    reply(c, m, msg);
-    @debug "Replying with Embed:\n$msg"
-
-end
-
-function volume(c::Client, m::Message, emoji::Vector{AbstractString})
-
-    @debug "Emoji going into volume():\n$emoji"
-
-
-    temp_png = joinpath("data", "temp_volume.png")
-    @debug "Temporary png file location:\n$temp_png"
-
-    p = plot(rand(10, length(emoji)), label=permutedims(emoji)); # , legend=false);
-
-    i = 0.0
-    j = 0.0
-
-    for e in emoji
-        e_img = FileIO.load(download(EMOJI[e]))
-        @debug "Emoji name : $e"
-        @debug "Emoji image: $(EMOJI[e])"
-        @debug "Emoji type : $(typeof(e_img))"
-        p = put_emoji_on_plot(p, EmojiImageArray(e_img), i, j, 2.0);
-        i += 1
-        i > 9 ? (i -= 10; j += 1) : nothing
-    end
-
-    Plots.png(p, temp_png)
-
-    @debug "Temporary file exists?:$(isfile(temp_png))"
-
-    img_url = upload2imgur(temp_png)
-    @debug "imgur URL: $img_url"
-
-    # rm(temp_png)
-    @debug "Removing temporary file"
-
-    msg = Embed(;
-        title = "Volume $(join(emoji," "))",
-        description = "Link(s) to $(join(emoji," ")) image: $([ EMOJI[e] for e in emoji])",
-        image = EmbedImage(;url = img_url))
-
-    reply(c, m, msg);
-    @debug "Replying with Embed:\n$msg"
-end
-
-#= UTILITIES =#
-
-function put_emoji_on_plot(p::Plots.Plot, emoji::EmojiImageArray, x_pos::Float64, y_pos::Float64, scale::Float64; aspect_ratio=1.0)
-
-    (dx, dy) = size(emoji)
-
-    return plot!(p,
-            range(x_pos,x_pos+scale*(dx/dy);length=dx),
-            range(y_pos,y_pos+scale;length=dy),
-            emoji[end:-1:1, :], yflip = false, aspect_ratio=aspect_ratio)
-
-end
-
 
 end
