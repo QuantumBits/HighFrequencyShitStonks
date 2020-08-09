@@ -37,22 +37,18 @@ In HFSS, players ARE corporations!
 - Call ("Buy" contract)
     - You agree to buy stock from another player/channel at set upon price at a certain time
     - `HFSS CALL <@USER/#CHANNEL> :EMOJI: <COUNT> AT <PRICE> (WITHIN <DURATION>)`
-    - `#CHANNEL` sees a message from HFSS if initiating player has enough money
-        - You immediately set aside that amount of money upon initiating the call
+     - You immediately set aside that amount of money upon initiating the call
+    - `#CHANNEL` sees a message from HFSS if initiating player has enough money  
         - The first `@USER(S)` to agree then complete the transation (assuming within `<DURATION>` and have available stock)
             - Allow for partial fulfullment of contract, up to amount requested
     - `@USER` sees a message from HFSS if the initiating player has enough money and `@USER` has enough of that stock (otherwise no messages sent)
-        - You immediately set aside that amount of money upon initiating the call
         - If `@USER` agrees, then transaction completes immediately (assuming within `<DURATION>` and have available stock)
 - Put ("Sell" contract)
     - You agree to sell stock to another player/channel at a set upon price
     - `HFSS PUT <@USER/#CHANNEL> :EMOJI: <COUNT> AT <PRICE> (WITHIN <DURATION>)`
-    - `#CHANNEL` sees a message from HFSS if initiating player has enough stock
-        - You immeidately set aside that amount of stock upon initiating the put
-        - The first `@USER(S)` to agree then complete the transation (assuming within `<DURATION>` and have available funds)
-    - `@USER` sees a message from HFSS if initiating player has enough stock (otherwise no messages sent)
-        - You immediately set aside that amount of stock upon initiating the put
-        - If `@USER` agrees, then transation completes immediately (assuming within `<DURATION>` and have available funds)
+    - You immeidately set aside that amount of stock upon initiating the put
+    - `#CHANNEL` or `@USER` sees a message from HFSS if initiating player has enough stock
+        - When the first `@USER(S)` / If `@USER` chooses to agree, then complete the transation (assuming within `<DURATION>` and have available funds)
 - Issue Stock
     - You agree to sell stock in an emoji you own to everyone in the server at a price you set, ADDING NEW stock to the market
     - `HFSS ISSUE :EMOJI: <COUNT> AT <PRICE> (WITHIN <DURATION>)`
@@ -86,13 +82,13 @@ In HFSS, players ARE corporations!
 - Buy Emoji From Another
 - Sell Emoji To Another
     - You can sell any excess inventory you may have lying around
-    - Can sell to corporations or players directly (players use their direct-from-the-seller inventory FIRST instead of buying from a corporation on the fly. No upkeep!)
-    - #! CAN SET PRICE OF THESE EMOJI, AND LOWEST AVAILABLE PRICE WILL BE TAKEN WHEN SOMEONE USES AN EMOJI
-    - #! IF NONE OF THAT EMOJI EXIST IN ANY CORPORATION'S INVENTORY, THEN THAT EMOJI IS FREE
+    - Can sell to corporations directly (for messages/reactions, they use their own inventory FIRST before buying from a corporation on the fly!)
+    - IF NONE OF THAT EMOJI EXIST IN ANY CORPORATION'S INVENTORY, THEN THAT EMOJI IS FREE
 
 ## Intellectual Property Rights
 
 - If someone creates a new emoji, they have a ONE WEEK MONOPOLY on that new emoji's manufacture!
+- And maybe a free level of "corporate research"?
 
 ## Bankruptcy
 
@@ -118,7 +114,7 @@ In HFSS, players ARE corporations!
         - Will always choose cheapest seller
         - NOTE: Only UNIQUE emoji need be purchased per message (spamming in a single message won't break the bank)
     - Manufactured emoji stick around as capital
-        - Can sell them off, either at a loss directly to bank (~50% current manufacturing cost) or DIRECTLY to another corporation or player
+        - Can sell them off, either at a loss directly to bank (~50% current manufacturing cost) or DIRECTLY to another corporation
 - What are the costs associated with running an emoji corporation?
     - Each emoji manufactured costs an amount to produce
         - Can reduce this cost with "Corporate Research" (logarithmic decrease in price)
