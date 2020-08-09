@@ -1,56 +1,41 @@
 # High-Frequency Shit-Stonks (HFSS)
 
-Currently assume distinction between player/corporation, for simplicity perhaps combine into JUST the corporation
+In HFSS, players ARE corporations!
 
 ## The Stonk Market
 
-- Keeps track of ALL transactions (completed or not)
-- Determine the current price of a stock based on most recent completed calls and puts
+- Keeps track of ALL transactions
+- Determine the current price of a stock based on most recent **completed** calls and puts
     - If not enough info, then stock value is "0"
 
 ## Loans
 
-- Bank's interest rate set is constant
-    - #! IN FUTURE, make this set by "Chairman of the Fed" - a democratically elected position?
+- Bank's interest rate is just a constant, perhaps %5
+- In order to take out loan, must have collatoral? (e.g. total value of assets, stonks + emoji)
 
-## Bots
+> IN FUTURE, maybe make this set by "Chairman of the Fed" - a democratically elected / randomly assigned position?
 
-- #! IN FUTURE, will be like players but make random decisions on what to put / call
-- They do not own corporations, but will likely go bankrupt often and will act as a "source" of capital in this economy
-
-## Players
-
-- Number of bankruptcies
-- Stock acount
-- Savings account
-- Loan balances
-- Emoji account
-
-## Player Actions
+## Actions
 
 - Call ("Buy" contract)
     - You agree to buy stock from another player/channel at set upon price at a certain time
     - `HFSS CALL <@USER/#CHANNEL> :EMOJI: <COUNT> AT <PRICE> (WITHIN <DURATION>)`
-    - #CHANNEL sees a message from HFSS if initiating player has enough money
+    - `#CHANNEL` sees a message from HFSS if initiating player has enough money
         - You immediately set aside that amount of money upon initiating the call
-        - The first @USER(S) to agree then complete the transation (assuming within <DURATION> and have available stock)
+        - The first `@USER(S)` to agree then complete the transation (assuming within `<DURATION>` and have available stock)
             - Allow for partial fulfullment of contract, up to amount requested
-    - @USER sees a message from HFSS if the initiating player has enough money and @USER has enough of that stock (otherwise no messages sent)
+    - `@USER` sees a message from HFSS if the initiating player has enough money and `@USER` has enough of that stock (otherwise no messages sent)
         - You immediately set aside that amount of money upon initiating the call
-        - If @USER agrees, then transaction completes immediately (assuming within <DURATION> and have available stock)
+        - If `@USER` agrees, then transaction completes immediately (assuming within `<DURATION>` and have available stock)
 - Put ("Sell" contract)
     - You agree to sell stock to another player/channel at a set upon price
     - `HFSS PUT <@USER/#CHANNEL> :EMOJI: <COUNT> AT <PRICE> (WITHIN <DURATION>)`
-    - #CHANNEL sees a message from HFSS if initiating player has enough stock
+    - `#CHANNEL` sees a message from HFSS if initiating player has enough stock
         - You immeidately set aside that amount of stock upon initiating the put
-        - The first @USER(S) to agree then complete the transation (assuming within <DURATION> and have available funds)
-    - @USER sees a message from HFSS if initiating player has enough stock (otherwise no messages sent)
+        - The first `@USER(S)` to agree then complete the transation (assuming within `<DURATION>` and have available funds)
+    - `@USER` sees a message from HFSS if initiating player has enough stock (otherwise no messages sent)
         - You immediately set aside that amount of stock upon initiating the put
-        - If @USER agrees, then transation completes immediately (assuming within <DURATION> and have available funds)
-
-
-## Corporate Actions
-
+        - If `@USER` agrees, then transation completes immediately (assuming within `<DURATION>` and have available funds)
 - Issue Stock
     - You agree to sell stock in an emoji you own to everyone in the server at a price you set, ADDING NEW stock to the market
     - `HFSS ISSUE :EMOJI: <COUNT> AT <PRICE> (WITHIN <DURATION>)`
@@ -68,18 +53,17 @@ Currently assume distinction between player/corporation, for simplicity perhaps 
     - The COST of the emoji you manufacture will go down if you invest in your emoji production!
 - Invest In Emoji Research
     - You can choose to spend your money to make a particular emoji cheaper for you to manufacture!
+    - Price of investment increases exponentially, but cost decreases logarithmically
 - Set Message/Reaction Emoji Price
-
-## Corporate AND Player Actions
-
+    - Can set separate prices for message vs reaction emoji, or a single price for both
 - Borrow Money From Bank
     - You can borrow from the "bank", but all loans must be paid back within a week of borrowing, payments made daily
-    - `HFSS BORROW <AMOUNT>
+    - `HFSS BORROW <AMOUNT>`
     - Look into adding ways to collatoralize loans? So that you can't borrow more than you actually have (at the moment) to pay back?
 - Loan Money To Another
     - You can loan money to another player directly, setting the terms of your loan yourself
     - `HFSS LOAN @USER <AMOUNT> AT <INTEREST_RATE>% (FOR <DURATION>)`
-    - @USER sees a message from HFSS if initiating player has enough money (otherwise no message sent)
+    - `@USER` sees a message from HFSS if initiating player has enough money (otherwise no message sent)
         - You immediately set aside that amount of money upon initiating loan request
         - Might be worried about spamming other players? Naaaaah
 - Buy Emoji From Another
@@ -109,11 +93,7 @@ Currently assume distinction between player/corporation, for simplicity perhaps 
 - Emoji production settings
 - Emoji message/reaction prices
 
-- Corporations are TECHNICALLY separate from users, but the user is de-facto CEO
-    - Separate accounts, though the user can freely move money back and forth to save one or the other from bankruptcy
-    - #! IN THE FUTURE, want to allow SHAREHOLDERS to vote on CEO, who is only one allowed to do "Corporate Actions" as above.
-    - #! CEO gets a "salary" that's a fraction of the corporation's REVENUE (regardless of profit)
-    - #! Means CEO can't just move money back-and-forth between personal and corporate accounts (aww)
+- Corporations are users
 - Can issue any amount of shares in their company at any time at any price (doesn't mean anyone will buy them)
 - Can attempt to buy back any amount of shares at any price at any time (doesn't mean anyone will sell them)
 - How do corporations make profits?
@@ -137,10 +117,14 @@ Currently assume distinction between player/corporation, for simplicity perhaps 
     - Every time anyone uses an emoji, they automatically buy the cheapest available emoji from all corporations that have that emoji in stock
     - Recurring emoji production occurs at frequency set by corporation
 - Intentional Actions
-    - Put/Call stonks (players/corporations)
-    - Issue/Buyback stonks (corporations)
-    - Buy/Sell emoji (players/corporations)
-    - Lend/borrow (players/corporations)
-    - Research emoji (corporations)
-    - Manufature emoji (corporations)
-    - Set emoji price (corporations)
+    - Put/Call stonks
+    - Issue/Buyback stonks
+    - Buy/Sell emoji
+    - Lend/borrow
+    - Research emoji
+    - Manufature emoji
+    - Set emoji price
+
+## Bots
+
+- They do not own corporations, but will be buying/selling stonks/emoji.
