@@ -2,6 +2,23 @@
 
 In HFSS, players ARE corporations!
 
+## Game Loop
+
+- Automatic Actions
+    - Every day make loan payments on all outstanding loans
+        - If cannot make loan payments, go "bankrupt" and start again with a new starter loan at current Fed Interest Rate and zero debt
+    - Every week, corporations post a "weekly review" detailing financial performance (revenue, costs, profit, dividends, etc)
+    - Every time anyone uses an emoji, they automatically buy the cheapest available emoji from all corporations that have that emoji in stock
+    - Recurring emoji production occurs at frequency set by corporation
+- Intentional Actions
+    - Put/Call stonks
+    - Issue/Buyback stonks
+    - Buy/Sell emoji
+    - Lend/borrow
+    - Research emoji
+    - Manufature emoji
+    - Set emoji price
+
 ## The Stonk Market
 
 - Keeps track of ALL transactions
@@ -107,23 +124,6 @@ In HFSS, players ARE corporations!
         - Can reduce this cost with "Corporate Research" (logarithmic decrease in price)
     - Emoji inventory costs an amount to keep around (disincentivized from just hoarding emoji)
     - Must issue dividends every week, if any profits
-
-## Game Loop
-
-- Automatic Actions
-    - Every day make loan payments on all outstanding loans
-        - If cannot make loan payments, go "bankrupt" and start again with a new starter loan at current Fed Interest Rate and zero debt
-    - Every week, corporations post a "weekly review" detailing financial performance (revenue, costs, profit, dividends, etc)
-    - Every time anyone uses an emoji, they automatically buy the cheapest available emoji from all corporations that have that emoji in stock
-    - Recurring emoji production occurs at frequency set by corporation
-- Intentional Actions
-    - Put/Call stonks
-    - Issue/Buyback stonks
-    - Buy/Sell emoji
-    - Lend/borrow
-    - Research emoji
-    - Manufature emoji
-    - Set emoji price
 
 ## Bots
 
