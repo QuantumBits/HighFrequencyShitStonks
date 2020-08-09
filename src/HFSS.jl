@@ -2,71 +2,7 @@ module HFSS
 
 #=
 
-    * Global Properties
-
-    - Loan Interest Rate (2%-ish)
-    - Number of issued emoji stock
-
-    * Bots
-
-    - For now, they are like players but they make random decisions on what to put / call
-
-    * Players
-
-    - Basic actions
-        - Call ("Buy" contract)
-            - You agree to buy stock from another player at set upon price at a certain time
-            - `HFSS CALL <@USER/#CHANNEL> :EMOJI: <COUNT> AT <PRICE> (WITHIN <DURATION>)`
-            - #CHANNEL sees a message from HFSS if initiating player has enough money
-                - You immediately set aside that amount of money upon initiating the call
-                - The first @USER(S) to agree then complete the transation (assuming within <DURATION> and have available stock)
-                    - Allow for partial fulfullment of contract, up to amount requested
-            - @USER sees a message from HFSS if the initiating player has enough money and @USER has enough of that stock (otherwise no messages sent)
-                - You immediately set aside that amount of money upon initiating the call
-                - If @USER agrees, then transaction completes immediately (assuming within <DURATION> and have available stock)
-        - Put ("Sell" contract)
-            - You agree to sell stock to another player at a set upon price
-            - `HFSS PUT <@USER/#CHANNEL> :EMOJI: <COUNT> AT <PRICE> (WITHIN <DURATION>)`
-            - #CHANNEL sees a message from HFSS if initiating player has enough stock
-                - You immeidately set aside that amount of stock upon initiating the put
-                - The first @USER(S) to agree then complete the transation (assuming within <DURATION> and have available funds)
-            - @USER sees a message from HFSS if initiating player has enough stock (otherwise no messages sent)
-                - You immediately set aside that amount of stock upon initiating the put
-                - If @USER agrees, then transation completes immediately (assuming within <DURATION> and have available funds)
-        - Issue Stock
-            - You agree to sell stock in an emoji you own to everyone in the server at a price you set, ADDING NEW stock to the market
-        - Stock Buy-Back
-            - You agree to buy stock in an emoji you own from anyone in the server at a price you set, REMOVING stock from the market
-
-    - Stock counts
-    - Savings account balance
-    - Loan balances, with individual interest rates
-    - Number of times gone bankrupt (has no effect on game mechanics)
-    - Emoji "Corporations" they "own"
-        - This is based on who created the emoji!
-        - Can issue stock for the emoji (including to themselves)
-            - People can buy these stock from the original player at whatever price they want
-            - Share profits, but increase overall profitability of company (less likely to post losses)
-
-    * Corporations
-
-    - One per custom emoji (default emoji are owned by bots!)
-    - Can issue any amount of shares at any time at any price
-        - Doesn't mean anyone will buy them
-    - Can attempt to buy back any amount of shares at any price at any time
-        - Doesn't mean anyone will sell them
-    - Each emoji "corporation" ()
-
-
-
-    * Game Loop
-
-    - Everyday, players make automated loan payments, paying off highest interest rate loans first
-    - If players cannot make loan payments, they "go bankrupt" and start again with a new loan at current Fed Interest Rate
-    - Every week, each publicly-traded emoji posts a "quarterly review", detailing how they did overall
-    - Each time someone uses an emoji, they pay a (small) amount of "BitStonks" that factors into the revenue of the "emoji" corp
-    - Each week, a random percentage of a corporation's revenue will become "operating costs", and the net amount will be deemed "profits"
-        - 
+    
 
 =#
 
