@@ -100,7 +100,8 @@ function setup()
     end
 
     # Initialize Plotly Plots backend
-    gr()
+    # Only one that seems to work with emoji 13.0.0
+    plotly()
 
     # Start Client
     c = Client(SETTINGS["TOKEN"])
@@ -120,25 +121,28 @@ function setup()
         allowed=[Discord.Snowflake(SETTINGS["HFSS_ADMIN_ID"])])
 
     add_command!(c, :hfss_echo,
-        (c, m, msg) ->   echo(c, m, msg);
-        pattern=r"^(?i)hfss echo\s+([\s\S]*)",
+        (c, m, msg) -> echo(c, m, msg);
+        pattern=r"^(?i)hfss echo\s([\s\S]*)",
         allowed=[Discord.Snowflake(SETTINGS["HFSS_ADMIN_ID"])])
 
     add_command!(c, :read_prices,
         (c,m,msg) -> read_prices(c, m, msg);
-        pattern=r"^(?i)hfss read (.*)",
+        pattern=r"^(?i)hfss read (.*)$",
         allowed=[Discord.Snowflake(SETTINGS["HFSS_ADMIN_ID"])])
 
     add_command!(c, :stonks_manual,
         (c,m,msg) -> stonks_manual(c, m, msg);
-        pattern=r"^(?i)hfss stonks (.*)",
+        pattern=r"^(?i)hfss stonks (.*)$",
         allowed=[Discord.Snowflake(SETTINGS["HFSS_ADMIN_ID"])])
 
     #= Shitstonks commands =#
-    add_command!(c, :at_me,
-        (c,m,post_msg) -> handle_at_me(c, m, post_msg);
-        pattern=Regex("^<@$(SETTINGS["HFSS_BOT_ID"])>([\\s\\S]*)"))
+    add_command!(c, :read_ticker,
+    (c,m,msg) -> read_ticker(c, m, msg);
+    pattern=Regex("^<@$(SETTINGS["HFSS_BOT_ID"])>([\\s\\S]*)"))
 
+    # add_command!(c, :at_me,
+    #     (c,m,msg) -> handle_at_me(c, m, msg);
+    #     pattern=Regex("^<@$(SETTINGS["HFSS_BOT_ID"])>([\\s\\S]*)"))
 
     #= Update HFSS Status =#
     update_status(c, 0, Activity(;name = "Shitstonks", type = AT_GAME), "", true)
@@ -170,6 +174,18 @@ end
 function stonks_manual(c::Client, m::Message, msg::AbstractString)
 
     Discord.reply(c, m, "!stonks $msg")
+
+end
+
+
+function read_ticker(c::Client, m::Message, msg::AbstractString)
+
+    if m.author.id == Discord.Snowflake(SETTINGS["STONKS_BOT_ID"])
+        Discord.reply(c, m, "Hey! No infinite loops!")
+        return
+    end
+
+    Discord.reply(c, m, "This is the read_ticker() function\n$msg"; at=true)
 
 end
 
@@ -249,19 +265,41 @@ function portfolio(c::Client, m::Message)
     temp_svg = joinpath("data", "portfolio_$(m.author.username)_$(m.author.id).svg")
     @debug "Temporary svg file location:\n$temp_svg"
 
-    N = 100
-    account = DataFrame(Emoji=rand(keys(HFSS.EMOJI), N), Volume=10.0.^rand(0:6,N).*rand(N), Price=10.0.^rand(0:9,N).*rand(N))
+    N = 20
+    account = DataFrame(Emoji=rand(keys(HFSS.EMOJI), N), Volume=ceil.(10.0.^rand(0:6,N).*rand(N)), Price=10.0.^rand(0:9,N).*rand(N))
 
     account[:Value] = account[:Price] .* account[:Volume]
 
     sort!(account, :Value; rev=true)
     N_bar = 10
-    p_bar = Plots.bar(account[1:N_bar, :Value], 
+    p_bar = Plots.bar(account[1:N_bar, :Value],
         xticks = (1:N_bar, account[1:N_bar, :Emoji]),
         legend = false);
-    
+
     sort!(account, :Volume; rev=true)
+    p_pie_annotations = []
+
+    v_accum = 0.0
+    v_total = sum(account[:Volume])
+
+    for i = 1:size(account, 1)
+
+        δvol_i = 0.5 * account[i, :Volume] / v_total
+
+        if δvol_i > 0.01
+            θi = 2 * pi * (δvol_i + v_accum)
+
+            push!(p_pie_annotations, (0.5 * cos(θi), 0.5 * sin(θi), text(account[i, :Emoji])) )
+        else
+            break
+        end
+
+        v_accum += (account[i, :Volume] / v_total)
+
+    end
+
     p_pie = Plots.pie(account[:Emoji], account[:Volume],
+        annotations=p_pie_annotations,
         legend = false)
 
     p = Plots.plot(p_bar, p_pie)
@@ -274,7 +312,7 @@ function portfolio(c::Client, m::Message)
 
 
     account = account[1:min(size(account, 1), 20), :]
-    summary = [@sprintf("`%1.15E × %1.15E = %1.15E`%s",r[:Volume], r[:Price], r[:Value], r[:Emoji]) for r in eachrow(account)]
+    summary = [@sprintf("`%16d × %16.2f = %16.2f`%s",r[:Volume], r[:Price], r[:Value], r[:Emoji]) for r in eachrow(account)]
 
     msg = Embed(;
         title = "$(m.author.username)'s Portfolio",
