@@ -70,6 +70,7 @@ module HFSS
 
 =#
 
+import Base: string
 
 using HTTP, Discord, JSON, DataFrames, CSV, Dates, Plots, FileIO
 using ColorTypes, FixedPointNumbers, DelimitedFiles, Printf
@@ -87,7 +88,7 @@ const SETTINGS = JSON.parsefile(SETTINGS_FILENAME)
 
 const PRICES = DataFrame(emoji = AbstractString[], price=Float64[], timestamp=DateTime[])
 
-Base.String(e::Discord.Emoji) = "<$(e.animated ? "a" : "")$(e.require_colons || e.animated ? ":" : "")$(e.name):$(Int(e.id))>"
+string(e::Discord.Emoji) = "<$(e.animated ? "a" : "")$(e.require_colons || e.animated ? ":" : "")$(e.name):$(Int(e.id))>"
 
 function setup()
 
