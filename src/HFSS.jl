@@ -8,7 +8,8 @@ module HFSS
 
 import Base: string
 
-using HTTP, Discord, JSON, DataFrames, CSV, Dates, Plots, FileIO
+using HTTP, Discord, JSON
+using JuliaDB, DataFrames, CSV, Dates, Plots, FileIO
 using ColorTypes, FixedPointNumbers, DelimitedFiles, Printf
 
 const MAX_MSG_LENGTH = 2000

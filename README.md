@@ -35,27 +35,27 @@ In HFSS, players ARE corporations!
 ## Actions
 
 - Call ("Buy" contract)
-    - You agree to buy stock from another player/channel at set upon price at a certain time
+    - You agree to buy stock from another corporation/channel at set upon price at a certain time
     - `HFSS CALL <@USER/#CHANNEL> :EMOJI: <COUNT> AT <PRICE> (WITHIN <DURATION>)`
-     - You immediately set aside that amount of money upon initiating the call
+        - You immediately set aside that amount of money upon initiating the call
     - `#CHANNEL` sees a message from HFSS if initiating player has enough money  
         - The first `@USER(S)` to agree then complete the transation (assuming within `<DURATION>` and have available stock)
             - Allow for partial fulfullment of contract, up to amount requested
     - `@USER` sees a message from HFSS if the initiating player has enough money and `@USER` has enough of that stock (otherwise no messages sent)
         - If `@USER` agrees, then transaction completes immediately (assuming within `<DURATION>` and have available stock)
 - Put ("Sell" contract)
-    - You agree to sell stock to another player/channel at a set upon price
+    - You agree to sell stock to another corporation/channel at a set upon price
     - `HFSS PUT <@USER/#CHANNEL> :EMOJI: <COUNT> AT <PRICE> (WITHIN <DURATION>)`
     - You immeidately set aside that amount of stock upon initiating the put
     - `#CHANNEL` or `@USER` sees a message from HFSS if initiating player has enough stock
         - When the first `@USER(S)` / If `@USER` chooses to agree, then complete the transation (assuming within `<DURATION>` and have available funds)
 - Issue Stock
     - You agree to sell stock in an emoji you own to everyone in the server at a price you set, ADDING NEW stock to the market
-    - `HFSS ISSUE :EMOJI: <COUNT> AT <PRICE> (WITHIN <DURATION>)`
+    - `HFSS ISSUE <COUNT> AT <PRICE> (WITHIN <DURATION>)`
     - Server sees a message from HFSS, and anyone may buy any amount of that stock at that price from you until they are gone
 - Buy-Back Stock
     - You agree to buy stock in an emoji you own from anyone in the server at a price you set, REMOVING stock from the market
-    - `HFSS BUYBACK :EMOJI: <COUNT> AT <PRICE> (WITHIN <DURATION>)`
+    - `HFSS BUYBACK <COUNT> AT <PRICE> (WITHIN <DURATION>)`
     - Server sees a message from HFSS, and anyone may sell any amount of that stock at that price to you until they are gone
         - You MUST have enough money in the bank to carry out the full buyback when command is sent, and that amount is set aside
 - Manufacture Emoji
@@ -74,12 +74,15 @@ In HFSS, players ARE corporations!
     - `HFSS BORROW <AMOUNT>`
     - Look into adding ways to collatoralize loans? So that you can't borrow more than you actually have (at the moment) to pay back?
 - Loan Money To Another
-    - You can loan money to another player directly, setting the terms of your loan yourself
+    - You can loan money to another corporation directly, setting the terms of your loan yourself
     - `HFSS LOAN @USER <AMOUNT> AT <INTEREST_RATE>% (FOR <DURATION>)`
-    - `@USER` sees a message from HFSS if initiating player has enough money (otherwise no message sent)
+    - `@USER` sees a message from HFSS if initiating corporation has enough money (otherwise no message sent)
         - You immediately set aside that amount of money upon initiating loan request
         - Might be worried about spamming other players? Naaaaah
 - Buy Emoji From Another
+    - In order to use an emoji in a message / reaction, a corporation must buy that emoji.
+    - If a corporation doesn't have enough StonkBux to buy that emoji, they go bankrupt!
+    - Corporations use their inventory FIRST instead of buying from another corporation on the fly. No upkeep!
 - Sell Emoji To Another
     - You can sell any excess inventory you may have lying around
     - Can sell to corporations directly (for messages/reactions, they use their own inventory FIRST before buying from a corporation on the fly!)
@@ -92,7 +95,7 @@ In HFSS, players ARE corporations!
 
 ## Bankruptcy
 
-- After anyone goes bankrupt (a player OR bot), they will start over with a small loan (same start for everyone)
+- After anyone goes bankrupt (a corporation OR bot), they will start over with a small loan (same start for everyone)
 - A counter indicating how many times they've gone bankrupt will also increment, and be visible to everyone
     - HFSS will note this number whenever it @mentions a @USER
 
@@ -106,7 +109,7 @@ In HFSS, players ARE corporations!
 - Emoji production settings
 - Emoji message/reaction prices
 
-- Corporations are users
+- Corporations ARE users!
 - Can issue any amount of shares in their company at any time at any price (doesn't mean anyone will buy them)
 - Can attempt to buy back any amount of shares at any price at any time (doesn't mean anyone will sell them)
 - How do corporations make profits?
@@ -115,11 +118,12 @@ In HFSS, players ARE corporations!
         - NOTE: Only UNIQUE emoji need be purchased per message (spamming in a single message won't break the bank)
     - Manufactured emoji stick around as capital
         - Can sell them off, either at a loss directly to bank (~50% current manufacturing cost) or DIRECTLY to another corporation
+    - Make money through all NON-EMOJI characters they type
 - What are the costs associated with running an emoji corporation?
     - Each emoji manufactured costs an amount to produce
         - Can reduce this cost with "Corporate Research" (logarithmic decrease in price)
     - Emoji inventory costs an amount to keep around (disincentivized from just hoarding emoji)
-    - Must issue dividends every week, if any profits
+    - Must issue dividends every week, as percentage of profits
 
 ## Bots
 
