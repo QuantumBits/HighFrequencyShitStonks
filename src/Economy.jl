@@ -6,106 +6,145 @@ using Dates
 
 using .Emoji, .Corporation
 
-abstract type STONK_ORDER end
-abstract type CALL    <: STONK_ORDER end # Issue a contract to buy stonk
-abstract type PUT     <: STONK_ORDER end # Issue a contract to sell stonk
-abstract type ISSUE   <: STONK_ORDER end # Issue new stonk in a Corporation
-abstract type BUYBACK <: STONK_ORDER end # Issue a contract to buy back stonk in a Corporation
+StonkBux = Float64
 
-#! Stonks can be Corporations OR Emoji!
-#! Corporations can only issue stonk in themselves, not Emoji
-#! Corporations can still manufacture Emoji as usual (think of like a commodities market)
-
-# List of Stonk market orders
-const STONK_MARKET = table((
-    CORP_ID   =           UInt[],   # ID of Corporation initiating order
-    STONK_ID  =           UInt[],   # ID of Stonk involved in order
-    ORDER     =    STONK_ORDER[],   # Order type
-    COUNT     =        Float64[],   # Number of stonk involved in order
-    PRICE     =        Float64[],   # Price of stonk involved in order
-    DURATION  =   Dates.Period[],   # Duration that order is active
-    TIMESTAMP = Dates.DateTime[],   # Time order was initiated
-    FILLED    =           Bool[]    # Boolean indicating whether this order is filled
-))
-
-# List of Stonk market order fulfillments
-const STONK_MARKET_FILLED = table((
-    ACTION_ID    =           UInt[],    # Primary Key of order in STONK_MARKET
-    FILLER_ID    =           UInt[],    # ID of Corporation that filled this order
-    FILLER_COUNT =        Float64[],    # Number of stonk involed in filling this order
-    TIMESTAMP    = Dates.DateTime[]     # Time order was filled
-))
-
-# Summary of Stonk ownership
-const STONKS = table((
-    CORP_ID  =    UInt[],   # ID of Corporation
-    STONK_ID =    UInt[],   # ID of Corporation in which CORP_ID is buying stonk
-    COUNT    = Float64[],   # Number of stonk in STONK_ID that CORP_ID owns
-))
+#= STONKBUX =#
 
 # List of loans owned by each corporation
-const LOANS = table((
-    CORP_ID = UInt[],                   # ID of Corporation that took out loan
-    LENDER_ID = UInt[],                 # ID of Corporation (or bank) that lent out loan
-    PRINCIPLE = Float64[],              # Original principle amount of loan
-    PRINCIPLE_REMAINING = Float64[],    # Principle remaining on loan
-    INTEREST_REMAINING = Float64[],     # Interest remaining on loan
-    INTEREST_RATE = Float64[],          # Interest rate of loan
-    TERM = Dates.Period[],              # Term length of loan
-    TIMESTAMP = DateTime[],             # Time loan was lent
-    ACTIVE = Bool[]                     # Boolean indicating whether this loan has been paid back
+const StonkBuxLoans = table((
+    corp_ID             =   Snowflake[],    # ID of Corporation that took out loan
+    lender_ID           =   Snowflake[],    # ID of Corporation (or bank) that lent out loan
+    principle           =    StonkBux[],    # Original principle amount of loan
+    interest_rate       =     Float64[],    # Interest rate of loan (5% = 0.05)
+    term                =      Period[],    # Term length of loan
+    timestamp           =    DateTime[],    # Time loan was lent
+    is_outstanding      =        Bool[]     # Boolean indicating whether this loan has been paid back
 ))
 
 # List of StonkBux transactions by each corporation
-const TRANSACTIONS = table((
-    CORP_ID_FROM = UInt[],          # ID of originating Coropration
-    CORP_ID_TO  = UInt[],           # ID of destination Corporation
-    AMOUNT = Float64[],             # Amount of transaction (positive)
-    TIMESTAMP = Dates.DateTime[],   # Time transaction occurred
-    DESCRIPTION = AbstractString[]  # Description of transaction
+const StonkBuxTransactions = table((
+    corp_ID_from =       Snowflake[],   # ID of originating Corporation
+    corp_ID_to   =       Snowflake[],   # ID of destination Corporation
+    amount       =        StonkBux[],   # Amount of transaction (positive)
+    timestamp    =        DateTime[],   # Time transaction occurred
+    description  =  AbstractString[]    # Description of transaction
 ))
 
+"""
+    Add a StonkBux loan
+"""
+function add_stonkbux_load(corp_ID:::Snowflake, lender_ID:::Snowflake, principle:::StonkBux, interest_rate:::Float64, term:::Period, timestamp:::DateTime, is_outstanding:::Bool)
+    push!(Economy.StonkBuxLoans, (corp_ID, lender_ID, principle, interest_rate, term, timestamp, is_outstanding))
+end
+
+"""
+    Add a StonkBux transaction
+"""
+function add_stonkbux_transaction(corp_ID_from::Snowflake, corp_ID_to::Snowflake, amount::StonkBux, timestamp::DateTime, description::AbstractString)
+    push!(Economy.StonkBuxAccount, (corp_ID_from, corp_ID_to, amount, timestamp, description))
+end
+
+#= EMOJIS =#
+
 # List of each emoji being produced by each corporation
-const MEMES_OF_PRODUCTION = table()
+const MemesOfProduction = table((
+    corp_ID     =   Snowflake[],    # Corporation ID
+    emoji       =       Emoji[],    # Discord Emoji type
+    count       =        UInt[],    # Number of emoji to produce (whole numbers only)
+    interval    =      Period[],    # How often to produce
+    duration    =      Period[],    # How long to produce
+))
 
 # List of each emoji being sold by each corporation
-const PRICES = table()
-
-"""
-    Make a call on a corporation's stonk
-"""
-function call(caller_ID, corp_ID, count, price, duration)
-    push!(Economy.EMOJI_MARKET, (corp_ID, :CALL, caller_ID, count, price, duration, now(), true))
-end
-
-"""
-    Make a put on a corporation's stonk
-"""
-function put(putter_ID, corp_ID, count, price, duration)
-    push!(Economy.EMOJI_MARKET, (corp_ID, :PUT, putter_ID, count, price, duration, now(), true))
-end
-
-"""
-    Issue stonks in a corporation
-"""
-function issue(corp_ID, count, price, duration)
-    push!(Economy.EMOJI_MARKET, (corp_ID, :ISSUE, :GLOBAL, count, price, duration, now(), true))
-end
-
-"""
-    Buy-back stonks in a corporation
-"""
-function buyback(corp_ID, count, price, duration)
-    push!(Economy.EMOJI_MARKET, (corp_ID, :BUYBACK, :GLOBAL, count, price, duration, now(), true))
-end
+const EmojiMarket = table((
+    corp_ID     =   Snowflake[],    # Corporation ID
+    emoji       =       Emoji[],    # Discord Emoji type
+    price       =    StonkBux[],    # Price of emoji
+))
 
 """
     Set emoji production
 """
-function produce(corp_ID, emojis, counts, interval, duration)
-    for emoji in emojis
+function produce_emoji(corp_ID::Snowflake, emoji::Emoji, count::UInt, interval::Period, duration::Period)
+    push!(MemesOfProduction, (corp_ID, emoji, count, interval, duration))
+end
 
-    end
+"""
+    Set price to sell emoji
+"""
+function price_emoji(corp_ID::Snowflake, emoji::Emoji, price::StonkBux)
+    push!(EmojiMarket, (corp_ID, emoji, price))
+end
+
+#= STONKS =#
+
+# EMOJI SOURCE : corporations "manufacturing" them over time + the "open market"
+# EMOJI SINK   : corporations using them in messages / reactions + the "open market"
+
+# The "Black Market" will buy emoji from corporations at a very low price
+# and sell to corporations at a very high price
+# - buys emoji at 0.5x price for corporation to manufacture
+# - sells emoji at 2x price for corporation to manufacture
+# - can only be interacted with via message/reactions. You cannot buy/sell directly.
+
+# - Stonks can be Corporations OR Emoji?
+# - Corporations can only issue stonk in themselves, not Emoji
+# - Corporations can still manufacture Emoji as usual (think of like a commodities market)
+# - Corporations must buy an emoji before they can use it. If no corporation has any of that emoji in stock,
+#   then corporations must buy emoji from the "open market" and pay the current market rate (based on most recent trades)
+# - If corporations don't have enough cash to buy a message/reaction emoji, then they automatically take out a loan to do it
+#
+
+@enum Order call put issue buyback
+
+StonkID = Union{Emoji, Snowflake}
+
+# List of Stonk market orders
+const StonkMarketOrders = table((
+    corp_ID      =  Snowflake[],    # ID of Corporation initiating order
+    stonk_ID     =    StonkID[],    # ID of stonk involved in order (Emoji / Corporation)
+    order        =      Order[],    # Order type
+    count        =    Float64[],    # Number of stonk involved in order
+    price        =   StonkBux[],    # Price of stonk involved in order
+    duration     =     Period[],    # Duration that order is active
+    timestamp    =   DateTime[],    # Time order was initiated
+    is_filled    =       Bool[],    # Boolean indicating whether this order is filled
+))
+
+# List of completed Stonk market transactions
+const FilledStonkMarketOrders = table((
+    order_ID     =       UInt[],    # Primary Key of order in STONK_MARKET
+    filler_ID    =  Snowflake[],    # ID of Corporation that filled this order
+    count        =    Float64[],    # Number of stonk involed in filling this order
+    timestamp    =   DateTime[],    # Time order was filled
+))
+
+# List of Stonk account transactions
+const StonkAccountTransactions = table((
+    corp_ID     =   Snowflake[],    # Corporation ID
+    stonk_ID    =     StonkID[],    # Stonk ID
+    count       =     Float64[],    # Number of stonk added/subtracted
+))
+
+"""
+    Create a stonk market order
+"""
+function stonk_order(corp_ID::Snowflake, stonk_ID::StonkID, order::Order, count::Float64, price::StonkBux, duration::Period)
+    push!(Economy.StonkMarketOrders, (corp_ID, stonk_ID, order, count, price, duration, now(), true))
+end
+
+"""
+    Fill a stonk market order (even if only partially)
+"""
+function fill_stonk_order(order_ID::UInt, filler_ID::Snowflake, count::Float64)
+   push!(Economy.FilledStonkMarketOrders, (order_ID, filler_ID, count, now()))
+end
+
+"""
+    Add a Stonk Account Transaction
+"""
+function add_stonkaccount_transaction(corp_ID::Snowflake, stonk_ID::StonkID, count::Float64)
+    push!(Economy.StonkAccountTransactions, (corp_ID, stonk_ID, count))
 end
 
 end

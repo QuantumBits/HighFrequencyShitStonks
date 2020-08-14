@@ -2,15 +2,16 @@ module HFSS
 
 #=
 
-    
+
 
 =#
 
-import Base: string
 
 using HTTP, Discord, JSON
 using JuliaDB, DataFrames, CSV, Dates, Plots, FileIO
 using ColorTypes, FixedPointNumbers, DelimitedFiles, Printf
+
+export string
 
 const MAX_MSG_LENGTH = 2000
 const SETTINGS_FILENAME = joinpath(@__DIR__,"..","config","discord.json")
@@ -29,7 +30,7 @@ string(e::Discord.Emoji) = "<$(e.animated ? "a" : "")$(e.require_colons || e.ani
 
 function setup()
 
-    EMOJI = read_emoji_standard(HFSS.EMOJI, download(EMOJI_URL))
+    read_emoji_standard!(HFSS.EMOJI, download(HFSS.EMOJI_URL))
 
     try
         PRICES = load_prices()
@@ -137,7 +138,7 @@ function handle_at_me(c::Client, m::Message, msg::AbstractString)
 
 end
 
-function read_emoji_standard(emoji_dict::Dict{AbstractString, AbstractString}, emoji_standard_filename::AbstractString)
+function read_emoji_standard!(emoji_dict::Dict{AbstractString, AbstractString}, emoji_standard_filename::AbstractString)
 
     emojis = readdlm(emoji_standard_filename,';', AbstractString, comments=true, comment_char='#')
 
@@ -155,8 +156,6 @@ function read_emoji_standard(emoji_dict::Dict{AbstractString, AbstractString}, e
         emoji_dict[emoji] = emoji_img_url
 
     end
-
-    return emoji_dict
 
 end
 
