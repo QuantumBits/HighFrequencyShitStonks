@@ -18,6 +18,11 @@ const PRICES_TABLE = "PRICES"
 const EPOCHS_TABLE = "EPOCHS"
 const REACTS_TABLE = "REACTS"
 
+const ORDERS_TYPE_TABLE = "OrderType"
+const ORDERS_TABLE = "ORDERS" # List of open Stonk Market orders
+const FILLED_TABLE = "FILLED" # List of filled Stonk Market orders
+
+
 function create()::SQLite.DB
 
     # Connect to database
@@ -29,7 +34,7 @@ function create()::SQLite.DB
             id INTEGER PRIMARY KEY
     )""")
 
-    # List of emojis and associated data
+    # List of emojis and image location
     DBInterface.execute(db, """
         CREATE TABLE IF NOT EXISTS $(DB.EMOJIS_TABLE) (
             emoji TEXT PRIMARY KEY,
@@ -52,6 +57,31 @@ function create()::SQLite.DB
         CREATE TABLE IF NOT EXISTS $(DB.EPOCHS_TABLE) (
             channel_ID INTEGER PRIMARY KEY,
             message_ID INTEGER
+    )""")
+
+    #= STONK MARKET DBs =#
+
+    # Static table for order types
+    DBInterface.execute(db, """
+        CREATE TABLE IF NOT EXISTS $(DB.ORDERS_TYPE_TABLE) (
+            name TEXT PRIMARY KEY
+        )
+    """)
+    DBInterface.execute(db, "INSERT OR IGNORE INTO $(DB.ORDERS_TYPE_TABLE) (name) VALUES ('call'), ('put'), ('issue'), ('buyback')")
+
+    # List of open orders
+    DBInterface.execute(db, """
+        CREATE TABLE IF NOT EXISTS $(DB.ORDERS_TABLE) (
+            corp_ID INTEGER,
+            stonk_ID TEXT,
+            order_type TEXT,         -- call, put, issue, buyback
+            count REAL,
+            price REAL,
+            expiration TEXT,    -- DateTime when order expires
+            timestamp TEXT,     -- DateTime when order created
+            FOREIGN KEY (corp_ID) REFERENCES $(DB.CORPS_TABLE) (id),
+            FOREIGN KEY (stonk_ID) REFERENCES $(DB.EMOJIS_TABLE) (emoji)
+            FOREIGN KEY (order_type) REFERENCES $(DB.ORDERS_TYPE_TABLE) (name)
     )""")
 
     return db
@@ -102,7 +132,7 @@ function get_all_emojis(db::SQLite.DB)::IndexedTable
     return table(DBInterface.execute(db, "SELECT * FROM $(DB.EMOJIS_TABLE)"))
 end
 
-
+#TODO: FIX THIS
 """
     Upon an admin command, set the epoch of a particular channel for determining stonk prices to that specific message
 """
@@ -124,6 +154,7 @@ function set_channel_epoch(c::Client, e::Discord.Message)
 
 end
 
+#TODO: have this reference the "epochs" database
 function load_history(c::Discord.Client, db::SQLite.DB, channel_ID=Discord.Snowflake(149686433618067457), message_ID=Discord.Snowflake(754759564234063997))
 
     channel = fetchval(Discord.get_channel(c, channel_ID))

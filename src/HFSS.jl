@@ -51,15 +51,6 @@ function setup()
         pattern=r"^(?i)hfss echo\s([\s\S]*)",
         allowed=[Discord.Snowflake(HFSS.SETTINGS["HFSS_ADMIN_ID"])])
 
-    #= Shitstonks commands =#
-    add_command!(c, :read_ticker,
-        (c,m,msg) -> read_ticker(c, m, msg);
-        pattern=Regex("^<@$(HFSS.SETTINGS["HFSS_BOT_ID"])>([\\s\\S]*)"))
-
-    # add_command!(c, :at_me,
-    #     (c,m,msg) -> handle_at_me(c, m, msg);
-    #     pattern=Regex("^<@$(SETTINGS["HFSS_BOT_ID"])>([\\s\\S]*)"))
-
     #= Update HFSS Status =#
     update_status(c, 0, Activity(;name = "Shitstonks", type = AT_GAME), "", true)
 
@@ -84,7 +75,7 @@ function handle_reaction_add(c::Client, e::MessageReactionAdd, db::SQLite.DB)
     stonk_count = 1.0
 
     # Create Stonk Order
-    HFSS.Economy.stonk_order(Discord.Snowflake(e.user_id), Utils.clean_emoji_string(e.emoji), HFSS.Economy.call, stonk_count, stonk_price, Dates.Second(0))
+    HFSS.Economy.stonk_order(db, Discord.Snowflake(e.user_id), Utils.clean_emoji_string(e.emoji), HFSS.Economy.call, stonk_count, stonk_price, Dates.Second(0))
 
     println("User ID $(e.user_id) reacted to message ID $(e.message_id) in channel ID $(e.channel_id) in guild ID $(e.guild_id) with emoji $(e.emoji)")
     println("Emoji image: $(DB.get_emojis(db, Utils.clean_emoji_string(e.emoji))[1].img)")

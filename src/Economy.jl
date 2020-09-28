@@ -1,7 +1,8 @@
 module Economy
 
-using Discord, JuliaDB, CSV
+using ..DB
 
+using Discord, JuliaDB, SQLite, CSV
 import Discord: Snowflake, Emoji
 
 using Dates
@@ -99,10 +100,10 @@ end
 # - If corporations don't have enough cash to buy a message/reaction emoji, then they automatically take out a loan to do it
 
 @enum Order begin
-    call
-    put
-    issue
-    buyback
+    call    = 1
+    put     = 2
+    issue   = 3
+    buyback = 4
 end
 
 # Either the emoji string itself, or the snowflake for an emoji, or a user ID
@@ -141,8 +142,18 @@ const StonkAccountTransactions = table((
 """
     Create a stonk market order
 """
-function stonk_order(corp_ID::Snowflake, stonk_ID::StonkID, order::Order, count::Real, price::StonkBux, duration::Period)
-    push!(rows(Economy.StonkMarketOrders), (corp_ID=corp_ID, stonk_ID=stonk_ID, order=order, count=count, price=price, duration=duration, timestamp=now(), is_filled=true))
+function stonk_order(db::SQLite.DB, corp_ID::Snowflake, stonk_ID::StonkID, order::Order, count::Real, price::StonkBux, duration::Period)
+
+    timestamp = now()
+    expiration = timestamp + duration
+
+    DBInterface.execute(db, """
+        INSERT INTO $(DB.ORDERS_TABLE) (corp_ID, stonk_ID, order_type, count, price, expiration, timestamp)
+        VALUES
+        ($corp_ID, '$stonk_ID', '$order', $count, $price, '$expiration', '$timestamp')
+    """)
+
+    # push!(rows(Economy.StonkMarketOrders), (corp_ID=corp_ID, stonk_ID=stonk_ID, order=order, count=count, price=price, duration=duration, timestamp=now(), is_filled=true))
 end
 
 """
