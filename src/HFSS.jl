@@ -1,82 +1,60 @@
 module HFSS
 
-#=
-
-
-
-=#
-
-
 using HTTP, Discord, JSON
-using JuliaDB, DataFrames, CSV, Dates, Plots, FileIO
+using JuliaDB, DataFrames, CSV, SQLite
+using Dates, Plots, FileIO
 using ColorTypes, FixedPointNumbers, DelimitedFiles, Printf
 
-export string
-
-const MAX_MSG_LENGTH = 2000
-const SETTINGS_FILENAME = joinpath(@__DIR__,"..","config","discord.json")
-const PRICES_FILENAME = joinpath(@__DIR__,"..","data","prices.csv")
-const EMOJI_URL = "https://unicode.org/Public/emoji/13.0/emoji-test.txt"
-const EMOJI_REGEX = r"<a?:(?:\w+):(?:\d+)>"
 const EmojiImageArray = Array{ColorTypes.RGBA{FixedPointNumbers.Normed{UInt8,8}},2}
 
-const EMOJI = Dict{AbstractString,AbstractString}()
+const MAX_MSG_LENGTH = 2000
 
+const SETTINGS_FILENAME = joinpath(@__DIR__,"..","config","discord.json")
 const SETTINGS = JSON.parsefile(SETTINGS_FILENAME)
 
-const PRICES = DataFrame(emoji = AbstractString[], price=Float64[], timestamp=DateTime[])
+include("Utils.jl")
+include("DB.jl")
+include("Economy.jl")
 
-string(e::Discord.Emoji) = "<$(e.animated ? "a" : "")$(e.require_colons || e.animated ? ":" : "")$(e.name):$(Int(e.id))>"
+using .Utils, .DB
 
 function setup()
 
-    read_emoji_standard!(HFSS.EMOJI, download(HFSS.EMOJI_URL))
-
-    try
-        PRICES = load_prices()
-    catch e
-    end
-
-    # Initialize Plotly Plots backend
-    # Only one that seems to work with emoji 13.0.0
-    plotly()
-
     # Start Client
-    c = Client(SETTINGS["TOKEN"])
+    c = Client(HFSS.SETTINGS["TOKEN"])
+
+    # Connect to database and create tables (if they don't exist)
+    db = HFSS.DB.create()
 
     # Get Guild Emoji
-    emojis_guild = fetchval(list_guild_emojis(c, Discord.Snowflake(SETTINGS["GUILD_ID"])))
+    emojis_guild = fetchval(list_guild_emojis(c, Discord.Snowflake(HFSS.SETTINGS["GUILD_ID"])))
 
-    for e in emojis_guild
-        EMOJI[String(e)] = "https://cdn.discordapp.com/emojis/$(e.id).png"
-    end
+    # Load emojis
+    HFSS.DB.load_emojis(db, emojis_guild)
+
+    #! DEBUGGING
+    HFSS.DB.load_history(c, db)
+
+    #= Handle Events =#
+
+    add_handler!(c, MessageReactionAdd, (c, e) -> handle_reaction_add(c, e, db))
 
     #= Admin commands =#
 
     add_command!(c, :portfolio,
-        (c, m) -> portfolio(c, m);
+        (c, m) -> portfolio(c, m, db);
         pattern=r"^(?i)hfss portfolio$",
-        allowed=[Discord.Snowflake(SETTINGS["HFSS_ADMIN_ID"])])
+        allowed=[Discord.Snowflake(HFSS.SETTINGS["HFSS_ADMIN_ID"])])
 
     add_command!(c, :hfss_echo,
         (c, m, msg) -> echo(c, m, msg);
         pattern=r"^(?i)hfss echo\s([\s\S]*)",
-        allowed=[Discord.Snowflake(SETTINGS["HFSS_ADMIN_ID"])])
-
-    add_command!(c, :read_prices,
-        (c,m,msg) -> read_prices(c, m, msg);
-        pattern=r"^(?i)hfss read (.*)$",
-        allowed=[Discord.Snowflake(SETTINGS["HFSS_ADMIN_ID"])])
-
-    add_command!(c, :stonks_manual,
-        (c,m,msg) -> stonks_manual(c, m, msg);
-        pattern=r"^(?i)hfss stonks (.*)$",
-        allowed=[Discord.Snowflake(SETTINGS["HFSS_ADMIN_ID"])])
+        allowed=[Discord.Snowflake(HFSS.SETTINGS["HFSS_ADMIN_ID"])])
 
     #= Shitstonks commands =#
     add_command!(c, :read_ticker,
-    (c,m,msg) -> read_ticker(c, m, msg);
-    pattern=Regex("^<@$(SETTINGS["HFSS_BOT_ID"])>([\\s\\S]*)"))
+        (c,m,msg) -> read_ticker(c, m, msg);
+        pattern=Regex("^<@$(HFSS.SETTINGS["HFSS_BOT_ID"])>([\\s\\S]*)"))
 
     # add_command!(c, :at_me,
     #     (c,m,msg) -> handle_at_me(c, m, msg);
@@ -91,15 +69,62 @@ function setup()
 
 end
 
-function load_prices()
 
-    return DataFrame(CSV.File(PRICES_FILENAME))
+function handle_reaction_add(c::Client, e::MessageReactionAdd, db::SQLite.DB)
+    # Create a market order to buy one stonk
+    # price is based on:
+    # - lowest available market sell order
+    # - if no available market sell orders, then base on price of last filled order for that emoji
+    # - if no orders available at all for that emoji, then emoji is free!
+
+    # Query Stonk Price
+    stonk_price = HFSS.Economy.StonkBux(1.0) #! For now assume static price
+
+    # Stonk Count
+    stonk_count = 1.0
+
+    # Create Stonk Order
+    HFSS.Economy.stonk_order(Discord.Snowflake(e.user_id), Utils.clean_emoji_string(e.emoji), HFSS.Economy.call, stonk_count, stonk_price, Dates.Second(0))
+
+    println("User ID $(e.user_id) reacted to message ID $(e.message_id) in channel ID $(e.channel_id) in guild ID $(e.guild_id) with emoji $(e.emoji)")
+    println("Emoji image: $(DB.get_emojis(db, Utils.clean_emoji_string(e.emoji))[1].img)")
+end
+
+# https://docs.juliaplots.org/latest/generated/plotly/#plotly-ref23-1
+# TODO: Update this to display an actual portfolio
+function portfolio(c::Client, m::Message, db::SQLite.DB)
+
+    N = 32
+    account = DataFrame(Emoji=rand(column(DB.get_all_emojis(db), :emoji), N), Volume=ceil.(10.0.^rand(0:6,N).*rand(N)), Price=10.0.^rand(0:9,N).*rand(N))
+
+    account[:Value] = account[:Price] .* account[:Volume]
+
+    sort!(account, :Value; rev=true)
+
+    account = account[1:min(size(account, 1), N), :]
+    summary = [@sprintf("`%16d × %16.2f = %17.2f` %s",r[:Volume], r[:Price], r[:Value], r[:Emoji]) for r in eachrow(account)]
+
+    msg = Discord.Embed(;
+        title = "$(m.author.username)'s Portfolio",
+        description = join(summary, '\n'))
+
+    Discord.create_message(c, m.channel_id; embed=msg)
+    @debug "Replying with Embed:\n$msg"
+
+end
+
+#= DEPRECATED FUNCTIONS =# # TODO: UPDATE THEM
+
+function load_prices()::DataFrame
+
+    DataFrame(emoji = AbstractString[], price=Float64[], timestamp=DateTime[])
+    return DataFrame(CSV.File(HFSS.PRICES_DB))
 
 end
 
 function store_prices(df::DataFrame)
 
-    CSV.write(PRICES_FILENAME, df)
+    CSV.write(PRICES_DB, df)
 
 end
 
@@ -114,7 +139,6 @@ function stonks_manual(c::Client, m::Message, msg::AbstractString)
     Discord.reply(c, m, "!stonks $msg")
 
 end
-
 
 function read_ticker(c::Client, m::Message, msg::AbstractString)
 
@@ -138,26 +162,6 @@ function handle_at_me(c::Client, m::Message, msg::AbstractString)
 
 end
 
-function read_emoji_standard!(emoji_dict::Dict{AbstractString, AbstractString}, emoji_standard_filename::AbstractString)
-
-    emojis = readdlm(emoji_standard_filename,';', AbstractString, comments=true, comment_char='#')
-
-    demojis = DataFrame(CodePoints = split.(emojis[:, 1]," "; keepempty=false), Qualifier = strip.(emojis[:, 2]))
-
-    codepoints = Array{String}.(demojis[ demojis[:Qualifier] .== "fully-qualified", :CodePoints])
-
-    # Get emoji characters and links to images
-    for emoji_code in codepoints
-
-        emoji =  String(reduce(*, Char.(parse.(Int, emoji_code, base=16))))
-
-        emoji_img_url = "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/$(lowercase(join(emoji_code,"-"))).png"
-
-        emoji_dict[emoji] = emoji_img_url
-
-    end
-
-end
 
 function parse_emoji(msg::AbstractString)
 
@@ -192,73 +196,5 @@ function echo(c::Client, m::Message, msg::AbstractString)
 
 end
 
-# https://docs.juliaplots.org/latest/generated/plotly/#plotly-ref23-1
-function portfolio(c::Client, m::Message)
-
-    temp_png = joinpath("data", "portfolio_$(m.author.username)_$(m.author.id).png")
-    @debug "Temporary png file location:\n$temp_png"
-
-    temp_svg = joinpath("data", "portfolio_$(m.author.username)_$(m.author.id).svg")
-    @debug "Temporary svg file location:\n$temp_svg"
-
-    N = 20
-    account = DataFrame(Emoji=rand(keys(HFSS.EMOJI), N), Volume=ceil.(10.0.^rand(0:6,N).*rand(N)), Price=10.0.^rand(0:9,N).*rand(N))
-
-    account[:Value] = account[:Price] .* account[:Volume]
-
-    sort!(account, :Value; rev=true)
-    N_bar = 10
-    p_bar = Plots.bar(account[1:N_bar, :Value],
-        xticks = (1:N_bar, account[1:N_bar, :Emoji]),
-        legend = false);
-
-    sort!(account, :Volume; rev=true)
-    p_pie_annotations = []
-
-    v_accum = 0.0
-    v_total = sum(account[:Volume])
-
-    for i = 1:size(account, 1)
-
-        δvol_i = 0.5 * account[i, :Volume] / v_total
-
-        if δvol_i > 0.01
-            θi = 2 * pi * (δvol_i + v_accum)
-
-            push!(p_pie_annotations, (0.5 * cos(θi), 0.5 * sin(θi), text(account[i, :Emoji])) )
-        else
-            break
-        end
-
-        v_accum += (account[i, :Volume] / v_total)
-
-    end
-
-    p_pie = Plots.pie(account[:Emoji], account[:Volume],
-        annotations=p_pie_annotations,
-        legend = false)
-
-    p = Plots.plot(p_bar, p_pie)
-
-    Plots.png(p, temp_png)
-    @debug "Temporary png file exists?:$(isfile(temp_png))"
-
-    Plots.svg(p, temp_svg)
-    @debug "Temporary svg file exists?:$(isfile(temp_svg))"
-
-
-    account = account[1:min(size(account, 1), 20), :]
-    summary = [@sprintf("`%16d × %16.2f = %16.2f`%s",r[:Volume], r[:Price], r[:Value], r[:Emoji]) for r in eachrow(account)]
-
-    msg = Embed(;
-        title = "$(m.author.username)'s Portfolio",
-        description = join(summary, '\n'),
-        url = "https://svgshare.com/i/LdU.svg")
-
-    Discord.create_message(c, m.channel_id; embed=msg, file=open(temp_png))
-    @debug "Replying with Embed:\n$msg"
-    @debug "Replying with File:\n$temp_svg"
-
-end
 
 end

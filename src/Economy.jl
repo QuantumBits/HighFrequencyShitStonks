@@ -2,14 +2,15 @@ module Economy
 
 using Discord, JuliaDB, CSV
 
-using Dates
+import Discord: Snowflake, Emoji
 
-using .Emoji, .Corporation
+using Dates
 
 StonkBux = Float64
 
 #= STONKBUX =#
 
+#TODO: Replace with SQLite DB
 # List of loans owned by each corporation
 const StonkBuxLoans = table((
     corp_ID             =   Snowflake[],    # ID of Corporation that took out loan
@@ -21,6 +22,7 @@ const StonkBuxLoans = table((
     is_outstanding      =        Bool[]     # Boolean indicating whether this loan has been paid back
 ))
 
+#TODO: Replace with SQLite DB
 # List of StonkBux transactions by each corporation
 const StonkBuxTransactions = table((
     corp_ID_from =       Snowflake[],   # ID of originating Corporation
@@ -33,19 +35,20 @@ const StonkBuxTransactions = table((
 """
     Add a StonkBux loan
 """
-function add_stonkbux_load(corp_ID:::Snowflake, lender_ID:::Snowflake, principle:::StonkBux, interest_rate:::Float64, term:::Period, timestamp:::DateTime, is_outstanding:::Bool)
-    push!(Economy.StonkBuxLoans, (corp_ID, lender_ID, principle, interest_rate, term, timestamp, is_outstanding))
+function add_stonkbux_loan(corp_ID::Snowflake, lender_ID::Snowflake, principle::StonkBux, interest_rate::Float64, term::Period, timestamp::DateTime, is_outstanding::Bool)
+    push!(rows(Economy.StonkBuxLoans), (corp_ID=corp_ID, lender_ID=lender_ID, principle=principle, interest_rate=interest_rate, term=term, timestamp=timestamp, is_outstanding=is_outstanding))
 end
 
 """
     Add a StonkBux transaction
 """
 function add_stonkbux_transaction(corp_ID_from::Snowflake, corp_ID_to::Snowflake, amount::StonkBux, timestamp::DateTime, description::AbstractString)
-    push!(Economy.StonkBuxAccount, (corp_ID_from, corp_ID_to, amount, timestamp, description))
+    push!(rows(Economy.StonkBuxAccount), (corp_ID_from=corp_ID_from, corp_ID_to=corp_ID_to, amount=amount, timestamp=timestamp, description=description))
 end
 
 #= EMOJIS =#
 
+#TODO: Replace with SQLite DB
 # List of each emoji being produced by each corporation
 const MemesOfProduction = table((
     corp_ID     =   Snowflake[],    # Corporation ID
@@ -55,6 +58,7 @@ const MemesOfProduction = table((
     duration    =      Period[],    # How long to produce
 ))
 
+#TODO: Replace with SQLite DB
 # List of each emoji being sold by each corporation
 const EmojiMarket = table((
     corp_ID     =   Snowflake[],    # Corporation ID
@@ -66,14 +70,14 @@ const EmojiMarket = table((
     Set emoji production
 """
 function produce_emoji(corp_ID::Snowflake, emoji::Emoji, count::UInt, interval::Period, duration::Period)
-    push!(MemesOfProduction, (corp_ID, emoji, count, interval, duration))
+    push!(rows(Economy.MemesOfProduction), (corp_ID=corp_ID, emoji=emoji, count=count, interval=interval, duration=duration))
 end
 
 """
     Set price to sell emoji
 """
 function price_emoji(corp_ID::Snowflake, emoji::Emoji, price::StonkBux)
-    push!(EmojiMarket, (corp_ID, emoji, price))
+    push!(rows(Economy.EmojiMarket), (corp_ID=corp_ID, emoji=emoji, price=price))
 end
 
 #= STONKS =#
@@ -93,16 +97,22 @@ end
 # - Corporations must buy an emoji before they can use it. If no corporation has any of that emoji in stock,
 #   then corporations must buy emoji from the "open market" and pay the current market rate (based on most recent trades)
 # - If corporations don't have enough cash to buy a message/reaction emoji, then they automatically take out a loan to do it
-#
 
-@enum Order call put issue buyback
+@enum Order begin
+    call
+    put
+    issue
+    buyback
+end
 
-StonkID = Union{Emoji, Snowflake}
+# Either the emoji string itself, or the snowflake for an emoji, or a user ID
+StonkID = AbstractString
 
+#TODO: Replace with SQLite DB
 # List of Stonk market orders
 const StonkMarketOrders = table((
     corp_ID      =  Snowflake[],    # ID of Corporation initiating order
-    stonk_ID     =    StonkID[],    # ID of stonk involved in order (Emoji / Corporation)
+    stonk_ID     =    StonkID[],    # ID of stonk involved in order
     order        =      Order[],    # Order type
     count        =    Float64[],    # Number of stonk involved in order
     price        =   StonkBux[],    # Price of stonk involved in order
@@ -111,6 +121,7 @@ const StonkMarketOrders = table((
     is_filled    =       Bool[],    # Boolean indicating whether this order is filled
 ))
 
+#TODO: Replace with SQLite DB
 # List of completed Stonk market transactions
 const FilledStonkMarketOrders = table((
     order_ID     =       UInt[],    # Primary Key of order in STONK_MARKET
@@ -119,6 +130,7 @@ const FilledStonkMarketOrders = table((
     timestamp    =   DateTime[],    # Time order was filled
 ))
 
+#TODO: Replace with SQLite DB
 # List of Stonk account transactions
 const StonkAccountTransactions = table((
     corp_ID     =   Snowflake[],    # Corporation ID
@@ -129,22 +141,22 @@ const StonkAccountTransactions = table((
 """
     Create a stonk market order
 """
-function stonk_order(corp_ID::Snowflake, stonk_ID::StonkID, order::Order, count::Float64, price::StonkBux, duration::Period)
-    push!(Economy.StonkMarketOrders, (corp_ID, stonk_ID, order, count, price, duration, now(), true))
+function stonk_order(corp_ID::Snowflake, stonk_ID::StonkID, order::Order, count::Real, price::StonkBux, duration::Period)
+    push!(rows(Economy.StonkMarketOrders), (corp_ID=corp_ID, stonk_ID=stonk_ID, order=order, count=count, price=price, duration=duration, timestamp=now(), is_filled=true))
 end
 
 """
     Fill a stonk market order (even if only partially)
 """
-function fill_stonk_order(order_ID::UInt, filler_ID::Snowflake, count::Float64)
-   push!(Economy.FilledStonkMarketOrders, (order_ID, filler_ID, count, now()))
+function fill_stonk_order(order_ID::UInt, filler_ID::Snowflake, count::Real)
+   push!(rows(Economy.FilledStonkMarketOrders), (order_ID=order_ID, filler_ID=filler_ID, count=count, timestamp=now()))
 end
 
 """
     Add a Stonk Account Transaction
 """
-function add_stonkaccount_transaction(corp_ID::Snowflake, stonk_ID::StonkID, count::Float64)
-    push!(Economy.StonkAccountTransactions, (corp_ID, stonk_ID, count))
+function add_stonkaccount_transaction(corp_ID::Snowflake, stonk_ID::StonkID, count::Real)
+    push!(rows(Economy.StonkAccountTransactions), (corp_ID=corp_ID, stonk_ID=stonk_ID, count=count))
 end
 
 end
