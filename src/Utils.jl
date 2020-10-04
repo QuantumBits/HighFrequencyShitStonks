@@ -1,6 +1,6 @@
 module Utils
 
-using Discord
+using Discord, Dates
 
 const EMOJI_REGEX = r"<a?:(?:\w+):(?:\d+)>"
 
@@ -14,5 +14,6 @@ function clean_emoji_string(e::AbstractString)::AbstractString
     end
 end
 clean_emoji_string(e::Discord.Emoji)::AbstractString = clean_emoji_string(Discord.string(e))
+
 
 end

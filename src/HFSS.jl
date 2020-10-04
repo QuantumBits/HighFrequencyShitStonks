@@ -12,30 +12,33 @@ const MAX_MSG_LENGTH = 2000
 const SETTINGS_FILENAME = joinpath(@__DIR__,"..","config","discord.json")
 const SETTINGS = JSON.parsefile(SETTINGS_FILENAME)
 
+include("Constants.jl")
 include("Utils.jl")
 include("DB.jl")
 include("Economy.jl")
 
-using .Utils, .DB
+using .Constants, .Utils, .DB, .Economy
 
-function setup()
+function setup(;epoch::DateTime=now(UTC)-Day(0), reset::Bool=false)
 
     # Start Client
     c = Client(HFSS.SETTINGS["TOKEN"])
 
     # Connect to database and create tables (if they don't exist)
-    db = HFSS.DB.create()
-
-    # Get Guild Emoji
-    emojis_guild = fetchval(list_guild_emojis(c, Discord.Snowflake(HFSS.SETTINGS["GUILD_ID"])))
-
-    # Load emojis
-    HFSS.DB.load_emojis(db, emojis_guild)
-
-    #! DEBUGGING
-    HFSS.DB.load_history(c, db)
+    default_guilds = Discord.Guild[]
+    for guild_ID in HFSS.SETTINGS["DEFAULT_GUILD_IDS"]
+        push!(default_guilds, fetchval(Discord.get_guild(c, guild_ID)))
+    end
+    db = HFSS.DB.create(c, default_guilds; reset=reset)
+ 
+    # Load stuff
+    HFSS.DB.load_humans(c, db)
+    HFSS.DB.load_emojis(c, db)
+    # HFSS.DB.load_reacts(c, db, epoch)
 
     #= Handle Events =#
+
+    @debug "Order? $(Constants.call)"
 
     add_handler!(c, MessageReactionAdd, (c, e) -> handle_reaction_add(c, e, db))
 
@@ -46,9 +49,14 @@ function setup()
         pattern=r"^(?i)hfss portfolio$",
         allowed=[Discord.Snowflake(HFSS.SETTINGS["HFSS_ADMIN_ID"])])
 
-    add_command!(c, :hfss_echo,
+    add_command!(c, :echo,
         (c, m, msg) -> echo(c, m, msg);
         pattern=r"^(?i)hfss echo\s([\s\S]*)",
+        allowed=[Discord.Snowflake(HFSS.SETTINGS["HFSS_ADMIN_ID"])])
+
+    add_command!(c, :epoch,
+        (c, m) -> DB.set_channel_epoch(m, db);
+        pattern=r"^(?i)hfss epoch$",
         allowed=[Discord.Snowflake(HFSS.SETTINGS["HFSS_ADMIN_ID"])])
 
     #= Update HFSS Status =#
@@ -59,7 +67,6 @@ function setup()
     return c
 
 end
-
 
 function handle_reaction_add(c::Client, e::MessageReactionAdd, db::SQLite.DB)
     # Create a market order to buy one stonk
@@ -74,11 +81,19 @@ function handle_reaction_add(c::Client, e::MessageReactionAdd, db::SQLite.DB)
     # Stonk Count
     stonk_count = 1.0
 
-    # Create Stonk Order
-    HFSS.Economy.stonk_order(db, Discord.Snowflake(e.user_id), Utils.clean_emoji_string(e.emoji), HFSS.Economy.call, stonk_count, stonk_price, Dates.Second(0))
+    # Duration
+    duration = Dates.Second(0)
 
-    println("User ID $(e.user_id) reacted to message ID $(e.message_id) in channel ID $(e.channel_id) in guild ID $(e.guild_id) with emoji $(e.emoji)")
-    println("Emoji image: $(DB.get_emojis(db, Utils.clean_emoji_string(e.emoji))[1].img)")
+    # Timestamp
+    timestamp = fetchval(Discord.get_channel_message(c, e.channel_id, e.message_id)).timestamp
+    
+    @debug "About to make a '$(Constants.call)' type order ($(typeof(Constants.call)))"
+    @debug "User ID $(e.user_id) reacted to message ID $(e.message_id) in channel ID $(e.channel_id) in guild ID $(e.guild_id) with emoji $(e.emoji)"
+    @debug "Emoji image: $(DB.get_emojis(db, Utils.clean_emoji_string(e.emoji))[1].img)"
+
+    # Create Stonk Order
+    HFSS.Economy.stonk_order(db, Discord.Snowflake(e.user_id), Utils.clean_emoji_string(e.emoji), Constants.call, stonk_count, stonk_price, duration, timestamp)
+
 end
 
 # https://docs.juliaplots.org/latest/generated/plotly/#plotly-ref23-1
@@ -86,7 +101,7 @@ end
 function portfolio(c::Client, m::Message, db::SQLite.DB)
 
     N = 32
-    account = DataFrame(Emoji=rand(column(DB.get_all_emojis(db), :emoji), N), Volume=ceil.(10.0.^rand(0:6,N).*rand(N)), Price=10.0.^rand(0:9,N).*rand(N))
+    account = DataFrame(Emoji=rand(column(DB.get_emojis_all(db), :emoji), N), Volume=ceil.(10.0.^rand(0:6,N).*rand(N)), Price=10.0.^rand(0:9,N).*rand(N))
 
     account[:Value] = account[:Price] .* account[:Volume]
 
@@ -104,7 +119,40 @@ function portfolio(c::Client, m::Message, db::SQLite.DB)
 
 end
 
+function echo(c::Client, m::Message, msg::AbstractString)
+
+    @debug "ECHO test:\n$msg"
+    @debug "ECHO test:\n$(parse_emoji(msg))"
+    reply(c, m, "ECHO: $msg")
+
+end
+
 #= DEPRECATED FUNCTIONS =# # TODO: UPDATE THEM
+
+function parse_emoji(msg::AbstractString)
+
+    emojis = AbstractString[]
+
+    while occursin(EMOJI_REGEX, msg)
+        e = String(match(EMOJI_REGEX, msg).match)
+        push!(emojis, e)
+        msg = replace(msg, e => "")
+    end
+    @debug "Emojis so far: $emojis"
+
+    emoji_candidates = String.(split(msg, " "; keepempty=false))
+    @debug "Emoji Candidates: $emoji_candidates"
+    @debug "Emoji CodePoints: $(codepoint.(Char.(emoji_candidates)))"
+
+    for k in emoji_candidates
+        if haskey(EMOJI, k)
+            push!(emojis, k)
+        end
+    end
+
+    return emojis
+
+end
 
 function load_prices()::DataFrame
 
@@ -150,40 +198,6 @@ function handle_at_me(c::Client, m::Message, msg::AbstractString)
     end
 
     Discord.reply(c, m, msg; at=true)
-
-end
-
-
-function parse_emoji(msg::AbstractString)
-
-    emojis = AbstractString[]
-
-    while occursin(EMOJI_REGEX, msg)
-        e = String(match(EMOJI_REGEX, msg).match)
-        push!(emojis, e)
-        msg = replace(msg, e => "")
-    end
-    @debug "Emojis so far: $emojis"
-
-    emoji_candidates = String.(split(msg, " "; keepempty=false))
-    @debug "Emoji Candidates: $emoji_candidates"
-    @debug "Emoji CodePoints: $(codepoint.(Char.(emoji_candidates)))"
-
-    for k in emoji_candidates
-        if haskey(EMOJI, k)
-            push!(emojis, k)
-        end
-    end
-
-    return emojis
-
-end
-
-function echo(c::Client, m::Message, msg::AbstractString)
-
-    @debug "ECHO test:\n$msg"
-    @debug "ECHO test:\n$(parse_emoji(msg))"
-    reply(c, m, "ECHO: $msg")
 
 end
 

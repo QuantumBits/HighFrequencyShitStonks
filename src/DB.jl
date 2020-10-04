@@ -1,7 +1,8 @@
 module DB
 
+using ..Constants
 using ..Utils
-using DelimitedFiles
+using Dates, DelimitedFiles
 using SQLite, Discord, JuliaDB
 
 export get_emojis
@@ -12,7 +13,9 @@ const TWEMOJI_STANDARD_URL = "https://unicode.org/Public/emoji/13.0/emoji-test.t
 const TWEMOJI_IMG_URL = "https://raw.githubusercontent.com/twitter/twemoji/master/assets/72x72/"
 const DISCORD_IMG_URL = "https://cdn.discordapp.com/emojis/"
 
-const CORPS_TABLE  = "CORPS"
+const GUILDS_TABLE = "GUILDS"
+const CHANNELS_TABLE = "CHANNELS"
+const HUMANS_TABLE  = "HUMANS"
 const EMOJIS_TABLE = "EMOJIS"
 const PRICES_TABLE = "PRICES"
 const EPOCHS_TABLE = "EPOCHS"
@@ -23,72 +26,145 @@ const ORDERS_TABLE = "ORDERS" # List of open Stonk Market orders
 const FILLED_TABLE = "FILLED" # List of filled Stonk Market orders
 
 
-function create()::SQLite.DB
+function create(c::Discord.Client, default_guilds::Vector{Discord.Guild}; reset::Bool=false)::SQLite.DB
 
     # Connect to database
     db = SQLite.DB(DB.DB_PATH)
 
-    # List of users
+    # List of guilds
+    reset ? DBInterface.execute(db, "DROP TABLE IF EXISTS $(DB.GUILDS_TABLE);") : nothing
     DBInterface.execute(db, """
-        CREATE TABLE IF NOT EXISTS $(DB.CORPS_TABLE) (
-            id INTEGER PRIMARY KEY
-    )""")
+        CREATE TABLE IF NOT EXISTS $(DB.GUILDS_TABLE) (
+            id INTEGER PRIMARY KEY,
+            name TEXT
+    );""")
+    for guild in default_guilds
+        DBInterface.execute(db, "INSERT OR IGNORE INTO $(DB.GUILDS_TABLE) (id, name) VALUES ($(guild.id), '$(guild.name)')")
+    end
 
-    # List of emojis and image location
+    # List of channels
+    reset ? DBInterface.execute(db, "DROP TABLE IF EXISTS $(DB.CHANNELS_TABLE);") : nothing
+    DBInterface.execute(db, """
+    CREATE TABLE IF NOT EXISTS $(DB.CHANNELS_TABLE) (
+        id INTEGER PRIMARY KEY,
+        name TEXT
+        );""")
+
+    # Insert all channels in default guild
+    for guild in default_guilds
+        SQL_VALUES = AbstractString[]
+        # Iterate each guild text channel
+        for channel in filter(c -> c.type == CT_GUILD_TEXT, fetchval(Discord.get_guild_channels(c, guild.id)))
+            push!(SQL_VALUES, "($(channel.id),'$(channel.name)')")
+        end
+        DBInterface.execute(db, "INSERT OR IGNORE INTO $(DB.CHANNELS_TABLE) (id, name) VALUES $(join(SQL_VALUES, ","))")
+    end
+
+    # List of humans
+    reset ? DBInterface.execute(db, "DROP TABLE IF EXISTS $(DB.HUMANS_TABLE);") : nothing
+    DBInterface.execute(db, """
+        CREATE TABLE IF NOT EXISTS $(DB.HUMANS_TABLE) (
+            id INTEGER PRIMARY KEY,
+            username TEXT
+    );""")
+
+    # List of channels
+    reset ? DBInterface.execute(db, "DROP TABLE IF EXISTS $(DB.HUMANS_TABLE);") : nothing
+    DBInterface.execute(db, """
+        CREATE TABLE IF NOT EXISTS $(DB.HUMANS_TABLE) (
+            id INTEGER PRIMARY KEY,
+            username TEXT
+    );""")
+
+    # List of emojis and their image locations
+    reset ? DBInterface.execute(db, "DROP TABLE IF EXISTS $(DB.EMOJIS_TABLE);") : nothing
     DBInterface.execute(db, """
         CREATE TABLE IF NOT EXISTS $(DB.EMOJIS_TABLE) (
             emoji TEXT PRIMARY KEY,
             img TEXT
-    )""")
+    );""")
 
-    # List of emoji reactions by user
+    # List of emoji reactions by humans
+    reset ? DBInterface.execute(db, "DROP TABLE IF EXISTS $(DB.REACTS_TABLE);") : nothing
     DBInterface.execute(db, """
         CREATE TABLE IF NOT EXISTS $(DB.REACTS_TABLE) (
             timestamp TEXT,
             corp_ID INTEGER,
             stonk_ID TEXT,
-            FOREIGN KEY (corp_ID) REFERENCES $(DB.CORPS_TABLE) (id),
-            FOREIGN KEY (stonk_ID) REFERENCES $(DB.EMOJIS_TABLE) (emoji)
-    )""")
-
-    # List of initial message IDs per channel
-    # These messages represent the start of "history" for stonk prices
-    DBInterface.execute(db, """
-        CREATE TABLE IF NOT EXISTS $(DB.EPOCHS_TABLE) (
-            channel_ID INTEGER PRIMARY KEY,
-            message_ID INTEGER
-    )""")
+            channel_ID INTEGER,
+            message_ID INTEGER,
+            FOREIGN KEY (corp_ID) REFERENCES $(DB.HUMANS_TABLE) (id),
+            FOREIGN KEY (stonk_ID) REFERENCES $(DB.EMOJIS_TABLE) (emoji),
+            PRIMARY KEY (timestamp, corp_ID, stonk_ID, channel_ID, message_ID)
+    );""")
 
     #= STONK MARKET DBs =#
 
     # Static table for order types
+    reset ? DBInterface.execute(db, "DROP TABLE IF EXISTS $(DB.ORDERS_TYPE_TABLE);") : nothing
     DBInterface.execute(db, """
         CREATE TABLE IF NOT EXISTS $(DB.ORDERS_TYPE_TABLE) (
             name TEXT PRIMARY KEY
         )
-    """)
-    DBInterface.execute(db, "INSERT OR IGNORE INTO $(DB.ORDERS_TYPE_TABLE) (name) VALUES ('call'), ('put'), ('issue'), ('buyback')")
+    ;""")
+    DBInterface.execute(db, "INSERT OR IGNORE INTO $(DB.ORDERS_TYPE_TABLE) (name) VALUES $(join(["('$order')" for order in instances(Order)],","))")
 
     # List of open orders
+    reset ? DBInterface.execute(db, "DROP TABLE IF EXISTS $(DB.ORDERS_TABLE);") : nothing
     DBInterface.execute(db, """
         CREATE TABLE IF NOT EXISTS $(DB.ORDERS_TABLE) (
             corp_ID INTEGER,
             stonk_ID TEXT,
-            order_type TEXT,         -- call, put, issue, buyback
+            order_type TEXT,    -- call, put, issue, buyback
             count REAL,
             price REAL,
             expiration TEXT,    -- DateTime when order expires
             timestamp TEXT,     -- DateTime when order created
-            FOREIGN KEY (corp_ID) REFERENCES $(DB.CORPS_TABLE) (id),
+            FOREIGN KEY (corp_ID) REFERENCES $(DB.HUMANS_TABLE) (id),
             FOREIGN KEY (stonk_ID) REFERENCES $(DB.EMOJIS_TABLE) (emoji)
             FOREIGN KEY (order_type) REFERENCES $(DB.ORDERS_TYPE_TABLE) (name)
-    )""")
+    );""")
 
     return db
 
 end
 
-function load_emojis(db::SQLite.DB, emojis_guild::Vector{Discord.Emoji})
+#= GUILDS =#
+
+function get_guilds(db::SQLite.DB)
+    return table(DBInterface.execute(db, "SELECT * FROM $(DB.GUILDS_TABLE)"))
+end
+
+#= CHANNELS =#
+
+function get_channels(db::SQLite.DB)
+    return table(DBInterface.execute(db, "SELECT * FROM $(DB.CHANNELS_TABLE)"))
+end
+
+#= HUMANS =#
+
+function load_humans(c::Discord.Client, db::SQLite.DB)
+
+    for guild in DB.get_guilds(db)
+
+        # Get guild member IDs
+        # TODO: update this to allow for >1000 if this ever takes off
+        members = fetchval(Discord.list_guild_members(c, guild.id; limit=1000))
+
+        # Filter out bots
+        humans = filter(m -> ismissing(m.user.bot) || (!ismissing(m.user.bot) && !m.user.bot), members)
+
+        # Compile into a SQL statement
+        SQL_STMT_VALUES = join([ "($(h.user.id),'$(h.user.username)')" for h in humans ], ",")
+
+        # Store in SQLite Database
+        DBInterface.execute(db, "REPLACE INTO $(DB.HUMANS_TABLE) (id,username) VALUES $SQL_STMT_VALUES")
+
+    end
+
+end
+
+function load_emojis(c::Discord.Client, db::SQLite.DB)
 
     # Create table
     emoji_standard_filename = download(DB.TWEMOJI_STANDARD_URL)
@@ -103,7 +179,6 @@ function load_emojis(db::SQLite.DB, emojis_guild::Vector{Discord.Emoji})
                 for i = 1:size(emojis, 1) ]) ]
 
     # Get emoji characters and links to images
-
     SQL_STMT_VALUES = AbstractString[]
     for emoji_code in codepoints
         emoji = Utils.clean_emoji_string(String(reduce(*, Char.(parse.(Int, emoji_code, base=16)))))
@@ -112,73 +187,105 @@ function load_emojis(db::SQLite.DB, emojis_guild::Vector{Discord.Emoji})
        append!(SQL_STMT_VALUES, ["('$emoji','$emoji_img_url')"])
 
     end
-    for e in emojis_guild
-        emoji = Utils.clean_emoji_string(e)
-        emoji_img_url = "$(DB.DISCORD_IMG_URL)$(e.id).$(e.animated ? "gif" : "png")"
-        append!(SQL_STMT_VALUES, ["('$emoji','$emoji_img_url')"])
+
+    DBInterface.execute(db, "REPLACE INTO $(DB.EMOJIS_TABLE) (emoji, img) VALUES $(join(SQL_STMT_VALUES, ","))")
+
+
+    for guild in DB.get_guilds(db)
+
+        SQL_STMT_VALUES = AbstractString[]
+
+        # Get Guild emojis
+        guild_emojis = fetchval(list_guild_emojis(c, guild.id))
+
+        for e in guild_emojis
+            emoji = Utils.clean_emoji_string(e)
+            emoji_img_url = "$(DB.DISCORD_IMG_URL)$(e.id).$(e.animated ? "gif" : "png")"
+            append!(SQL_STMT_VALUES, ["('$emoji','$emoji_img_url')"])
+        end
+
+        # Store in SQLite Database
+        DBInterface.execute(db, "REPLACE INTO $(DB.EMOJIS_TABLE) (emoji, img) VALUES $(join(SQL_STMT_VALUES, ","))")
+
     end
-    DBInterface.execute(db, "INSERT OR IGNORE INTO $(DB.EMOJIS_TABLE) (emoji, img) VALUES $(join(SQL_STMT_VALUES, ","))")
 
 end
+
+#= EMOJIS =#
 
 function get_emojis(db::SQLite.DB, emojis::Vector{T})::IndexedTable where {T <: AbstractString}
     return table(DBInterface.execute(db, "SELECT * FROM $(DB.EMOJIS_TABLE) WHERE emoji IN ('$(join(emojis,"','"))') "))
 end
-function get_emojis(db::SQLite.DB, emoji::T)::IndexedTable where {T <: AbstractString}
-    return get_emojis(db, Vector{T}([emoji]))
+function get_emojis(db::SQLite.DB, emojis::T)::IndexedTable where {T <: AbstractString}
+    return get_emojis(db, Vector{T}([emojis]))
 end
 
-function get_all_emojis(db::SQLite.DB)::IndexedTable
+function get_emojis_all(db::SQLite.DB)::IndexedTable
     return table(DBInterface.execute(db, "SELECT * FROM $(DB.EMOJIS_TABLE)"))
 end
 
-#TODO: FIX THIS
+#= REACTS =#
+
 """
-    Upon an admin command, set the epoch of a particular channel for determining stonk prices to that specific message
+    Get latest message reactions for each channel
 """
-function set_channel_epoch(c::Client, e::Discord.Message)
-
-    try
-        (e.channel_id, e.id)
-
-        epoch_db = JuliaDB.load(HFSS.EPOCHS_DB)
-
-
-        JuliaDB.save(epoch_db, HFSS.EPOCHS_DB)
-
-    catch e
-        @warn e.msg
-    end
-
-
-
+function get_latest_reacts(db::SQLite.DB)
+    return table(DBInterface.execute(db, "SELECT DISTINCT max(timestamp), channel_ID, message_ID FROM $(DB.REACTS_TABLE) GROUP BY channel_ID"))
 end
 
-#TODO: have this reference the "epochs" database
-function load_history(c::Discord.Client, db::SQLite.DB, channel_ID=Discord.Snowflake(149686433618067457), message_ID=Discord.Snowflake(754759564234063997))
+function load_reacts(c::Discord.Client, db::SQLite.DB, epoch::DateTime)
 
-    channel = fetchval(Discord.get_channel(c, channel_ID))
+    function get_SQL_values(c::Discord.Client, channel_id::Discord.Snowflake, epoch::DateTime)::Vector{AbstractString}
 
-    SQL_VALUES = AbstractString[]
+        # Initialize SQL statement values
+        SQL_VALUES = AbstractString[]
 
-    for i = 1:2
-        channel_msgs = fetchval(Discord.get_channel_messages(c, channel_ID; before=channel.last_message_id, limit=100))
-        msg_0_ID = channel_msgs[end].id
-        for msg in channel_msgs
-            if !ismissing(msg.reactions)
-                for r in msg.reactions
-                    users = Discord.fetchval(Discord.get_reactions(c, channel_ID, msg.id, replace(Utils.clean_emoji_string(r.emoji), r"<|>" => "")))
-                    if users !== nothing
-                        for u in users
-                            append!(SQL_VALUES, ["('$(msg.timestamp)', $(u.id), '$(Utils.clean_emoji_string(r.emoji))')"])
+        # Get first batch of channel messages
+        # NOTE: *last* message in list is *oldest* message in channel (until sorted later)
+        channel_msgs = fetchval(Discord.get_channel_messages(c, channel_id; limit=100))
+
+        if !isnothing(channel_msgs)
+
+            while length(channel_msgs) > 0
+
+                for msg in channel_msgs
+                    if msg.timestamp < epoch
+                        return SQL_VALUES
+                    else
+                        if !ismissing(msg.reactions)
+                            for r in msg.reactions
+                                users = Discord.fetchval(Discord.get_reactions(c, channel_id, msg.id, replace(Utils.clean_emoji_string(r.emoji), r"<|>" => "")))
+                                if users !== nothing
+                                    for u in users
+                                        push!(SQL_VALUES, "('$(msg.timestamp)', $(u.id), '$(Utils.clean_emoji_string(r.emoji))',$(channel_id),$(msg.id))")
+                                    end
+                                end
+                            end
                         end
                     end
                 end
+
+                channel_msgs = fetchval(Discord.get_channel_messages(c, channel_id; before=channel_msgs[end].id, limit=100))
+
             end
+
         end
+
+        return SQL_VALUES
     end
 
-    DBInterface.execute(db, "INSERT OR IGNORE INTO $(DB.REACTS_TABLE) (timestamp, corp_ID, stonk_ID) VALUES $(join(SQL_VALUES, ","))")
+    for channel in DB.get_channels(db)
+
+        SQL_VALUES = get_SQL_values(c, Discord.Snowflake(channel.id), epoch)
+        @debug "Number of reactions for channel : $(channel.name) : $(!isnothing(SQL_VALUES) ? length(SQL_VALUES) : "N/A")"
+
+        if !isempty(SQL_VALUES)
+            DBInterface.execute(db, "INSERT OR IGNORE INTO $(DB.REACTS_TABLE) (timestamp, corp_ID, stonk_ID, channel_ID, message_ID) VALUES $(join(SQL_VALUES, ","))")
+        end
+
+
+    end
+
 end
 
 end
