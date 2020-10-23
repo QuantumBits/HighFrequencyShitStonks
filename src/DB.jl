@@ -164,6 +164,16 @@ function load_humans(c::Discord.Client, db::SQLite.DB)
 
 end
 
+#= EMOJIS =#
+
+function emoji_img_url(e::Discord.Emoji)::AbstractString
+    return "$(DB.DISCORD_IMG_URL)$(e.id).$(e.animated ? "gif" : "png")"
+end
+function emoji_img_url(e::AbstractString)::AbstractString
+    img_code = lowercase(join(string.(UInt.([ Char(xi) for xi in e ]), base=16),"-"))
+    return "$(DB.TWEMOJI_IMG_URL)$img_code.png"
+end
+
 function load_emojis(c::Discord.Client, db::SQLite.DB)
 
     # Create table
@@ -181,15 +191,13 @@ function load_emojis(c::Discord.Client, db::SQLite.DB)
     # Get emoji characters and links to images
     SQL_STMT_VALUES = AbstractString[]
     for emoji_code in codepoints
-        emoji = Utils.clean_emoji_string(String(reduce(*, Char.(parse.(Int, emoji_code, base=16)))))
-        img_code = lowercase(join(string.(UInt.([ Char(xi) for xi in emoji ]), base=16),"-"))
-        emoji_img_url = "$(DB.TWEMOJI_IMG_URL)$img_code.png"
+        emoji = Utils.emoji_string(String(reduce(*, Char.(parse.(Int, emoji_code, base=16)))))
+        emoji_img_url = DB.emoji_img_url(emoji)
        append!(SQL_STMT_VALUES, ["('$emoji','$emoji_img_url')"])
 
     end
 
     DBInterface.execute(db, "REPLACE INTO $(DB.EMOJIS_TABLE) (emoji, img) VALUES $(join(SQL_STMT_VALUES, ","))")
-
 
     for guild in DB.get_guilds(db)
 
@@ -199,8 +207,8 @@ function load_emojis(c::Discord.Client, db::SQLite.DB)
         guild_emojis = fetchval(list_guild_emojis(c, guild.id))
 
         for e in guild_emojis
-            emoji = Utils.clean_emoji_string(e)
-            emoji_img_url = "$(DB.DISCORD_IMG_URL)$(e.id).$(e.animated ? "gif" : "png")"
+            emoji = Utils.emoji_string(e)
+            emoji_img_url = DB.emoji_img_url(e)
             append!(SQL_STMT_VALUES, ["('$emoji','$emoji_img_url')"])
         end
 
@@ -211,13 +219,34 @@ function load_emojis(c::Discord.Client, db::SQLite.DB)
 
 end
 
-#= EMOJIS =#
+function check_discord_emoji(db::SQLite.DB, e::Discord.Emoji)
+    # If emoji is a proper discord emoji
+    if Utils.is_discord_emoji(e)
+        # If emoji is not in the EMOJIS table
+        if length(table(DBInterface.execute(db, "SELECT * FROM $(DB.EMOJIS_TABLE) WHERE emoji = '$(Utils.emoji_string(e))'"))) == 0
+            # Add emoji to EMOJIS table
+            DBInterface.execute(db, "INSERT OR IGNORE INTO $(DB.EMOJIS_TABLE) (emoji, img) VALUES ('$(Utils.emoji_string(e))','$(emoji_img_url(e))')")
+        end
+    end
+end
 
 function get_emojis(db::SQLite.DB, emojis::Vector{T})::IndexedTable where {T <: AbstractString}
     return table(DBInterface.execute(db, "SELECT * FROM $(DB.EMOJIS_TABLE) WHERE emoji IN ('$(join(emojis,"','"))') "))
 end
-function get_emojis(db::SQLite.DB, emojis::T)::IndexedTable where {T <: AbstractString}
-    return get_emojis(db, Vector{T}([emojis]))
+function get_emoji(db::SQLite.DB, emoji::T)::IndexedTable where {T <: AbstractString}
+    return table(DBInterface.execute(db, "SELECT * FROM $(DB.EMOJIS_TABLE) WHERE emoji = '$emoji'"))
+end
+
+function get_emojis(db::SQLite.DB, emojis::Vector{Discord.Emoji})::IndexedTable
+    return get_emojis(db, Utils.emoji_string.(emojis))
+end
+function get_emoji(db::SQLite.DB, emoji::Discord.Emoji)::IndexedTable
+    try
+        return get_emoji(db, Utils.emoji_string(emoji))
+    catch e
+        check_discord_emoji(db, emoji)
+        return get_emoji(db, Utils.emoji_string(emoji))
+    end
 end
 
 function get_emojis_all(db::SQLite.DB)::IndexedTable
@@ -254,10 +283,10 @@ function load_reacts(c::Discord.Client, db::SQLite.DB, epoch::DateTime)
                     else
                         if !ismissing(msg.reactions)
                             for r in msg.reactions
-                                users = Discord.fetchval(Discord.get_reactions(c, channel_id, msg.id, replace(Utils.clean_emoji_string(r.emoji), r"<|>" => "")))
+                                users = Discord.fetchval(Discord.get_reactions(c, channel_id, msg.id, replace(Utils.emoji_string(r.emoji), r"<|>" => "")))
                                 if users !== nothing
                                     for u in users
-                                        push!(SQL_VALUES, "('$(msg.timestamp)', $(u.id), '$(Utils.clean_emoji_string(r.emoji))',$(channel_id),$(msg.id))")
+                                        push!(SQL_VALUES, "('$(msg.timestamp)', $(u.id), '$(Utils.emoji_string(r.emoji))',$(channel_id),$(msg.id))")
                                     end
                                 end
                             end
