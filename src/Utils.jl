@@ -1,10 +1,10 @@
 module Utils
 
-using Discord, Dates
+using Discord, Dates, Plots, Images
 
 const EMOJI_REGEX = r"<a?:(?:\w+):(?:\d+)>"
 
-function clean_emoji_string(e::AbstractString)::AbstractString
+function emoji_string(e::AbstractString)::AbstractString
     # If this is not a custom Discord emoji
     if match(Utils.EMOJI_REGEX, e) === nothing
         # Remove variation selectors
@@ -13,7 +13,19 @@ function clean_emoji_string(e::AbstractString)::AbstractString
         return e
     end
 end
-clean_emoji_string(e::Discord.Emoji)::AbstractString = clean_emoji_string(Discord.string(e))
+emoji_string(e::Discord.Emoji)::AbstractString = emoji_string(Discord.string(e))
 
+is_discord_emoji(e::Union{AbstractString,Discord.Emoji})::Bool = !isnothing(match(EMOJI_REGEX, emoji_string(e)))
+
+function put_image_on_plot(p::Plots.Plot, img::Matrix, X::Float64, Y::Float64, MX::Float64, MY::Float64)
+
+    (NX, NY) = size(img)
+
+    return plot!(p,
+        MX .* (1:NX)./NX .+ X .- (MX/2),
+        MY .* (1:NY)./NY .+ Y .- (MY/2),
+        img[end:-1:1, :], ratio=1, yflip=false)
+
+end
 
 end
