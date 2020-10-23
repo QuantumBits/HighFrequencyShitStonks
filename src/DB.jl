@@ -256,6 +256,20 @@ end
 #= REACTS =#
 
 """
+    Add reaction to list of reactions
+"""
+function add_reaction(db::SQLite.DB, e::MessageReactionAdd, timestamp::DateTime)
+
+    corp_ID = e.user_id
+    stonk_ID = Utils.emoji_string(e.emoji)
+    channel_ID = e.channel_id
+    message_ID = e.message_id
+
+    DBInterface.execute(db, "INSERT OR IGNORE INTO $(DB.REACTS_TABLE) (timestamp, corp_ID, stonk_ID, channel_ID, message_ID) VALUES ('$timestamp', $corp_ID, '$stonk_ID', $channel_ID, $message_ID)")
+
+end
+
+"""
     Get latest message reactions for each channel
 """
 function get_latest_reacts(db::SQLite.DB)
