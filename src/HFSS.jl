@@ -2,7 +2,7 @@ module HFSS
 
 using HTTP, Discord, JSON
 using JuliaDB, DataFrames, CSV, SQLite
-using Dates, Plots, FileIO
+using Dates, Plots, FileIO, Images
 using ColorTypes, FixedPointNumbers, DelimitedFiles, Printf
 
 const EmojiImageArray = Array{ColorTypes.RGBA{FixedPointNumbers.Normed{UInt8,8}},2}
@@ -19,7 +19,7 @@ include("Economy.jl")
 
 using .Constants, .Utils, .DB, .Economy
 
-function setup(;epoch::DateTime=now(UTC)-Day(0), reset::Bool=false)
+function setup(;epoch::DateTime=now(UTC)-Day(7), reset::Bool=false)
 
     # Start Client
     c = Client(HFSS.SETTINGS["TOKEN"])
@@ -30,23 +30,48 @@ function setup(;epoch::DateTime=now(UTC)-Day(0), reset::Bool=false)
         push!(default_guilds, fetchval(Discord.get_guild(c, guild_ID)))
     end
     db = HFSS.DB.create(c, default_guilds; reset=reset)
- 
+
     # Load stuff
     HFSS.DB.load_humans(c, db)
     HFSS.DB.load_emojis(c, db)
-    # HFSS.DB.load_reacts(c, db, epoch)
+    HFSS.DB.load_reacts(c, db, epoch)
 
     #= Handle Events =#
 
-    @debug "Order? $(Constants.call)"
-
     add_handler!(c, MessageReactionAdd, (c, e) -> handle_reaction_add(c, e, db))
+
+    #= User Commands =#
+
+    add_command!(c, :top,
+        (c, m, N) -> top(c, m, parse(Int, N), db),
+        pattern=r"^(?i)hfss top\s*(\d+)$")
+
+    add_command!(c, :top_today,
+        (c, m, N) -> top(c, m, parse(Int, N), db, now(UTC), Day(1)),
+        pattern=r"^(?i)hfss top\s*(\d+)\s*today$")
+
+    add_command!(c, :top_week,
+        (c, m, N) -> top(c, m, parse(Int, N), db, now(UTC), Week(1)),
+        pattern=r"^(?i)hfss top\s*(\d+)\s*week$")
+
+    add_command!(c, :top_month,
+        (c, m, N) -> top(c, m, parse(Int, N), db, now(UTC), Month(1)),
+        pattern=r"^(?i)hfss top\s*(\d+)\s*month$")
+
+    add_command!(c, :top_year,
+        (c, m, N) -> top(c, m, parse(Int, N), db, now(UTC), Year(1)),
+        pattern=r"^(?i)hfss top\s*(\d+)\s*year$")
 
     #= Admin commands =#
 
     add_command!(c, :portfolio,
         (c, m) -> portfolio(c, m, db);
         pattern=r"^(?i)hfss portfolio$",
+        allowed=[Discord.Snowflake(HFSS.SETTINGS["HFSS_ADMIN_ID"])])
+
+    add_command!(c, :pie,
+        (c, m, N) -> pie(c, m, parse(Int, N), db);
+        pattern=r"^(?i)hfss pie\s*(\d+)$",
         allowed=[Discord.Snowflake(HFSS.SETTINGS["HFSS_ADMIN_ID"])])
 
     add_command!(c, :echo,
@@ -70,10 +95,7 @@ end
 
 function handle_reaction_add(c::Client, e::MessageReactionAdd, db::SQLite.DB)
     # Create a market order to buy one stonk
-    # price is based on:
-    # - lowest available market sell order
-    # - if no available market sell orders, then base on price of last filled order for that emoji
-    # - if no orders available at all for that emoji, then emoji is free!
+    # The cheapest available market sell order will be compelted
 
     # Query Stonk Price
     stonk_price = HFSS.Economy.StonkBux(1.0) #! For now assume static price
@@ -86,13 +108,65 @@ function handle_reaction_add(c::Client, e::MessageReactionAdd, db::SQLite.DB)
 
     # Timestamp
     timestamp = fetchval(Discord.get_channel_message(c, e.channel_id, e.message_id)).timestamp
-    
-    @debug "About to make a '$(Constants.call)' type order ($(typeof(Constants.call)))"
-    @debug "User ID $(e.user_id) reacted to message ID $(e.message_id) in channel ID $(e.channel_id) in guild ID $(e.guild_id) with emoji $(e.emoji)"
-    @debug "Emoji image: $(DB.get_emojis(db, Utils.clean_emoji_string(e.emoji))[1].img)"
+
+    HFSS.DB.add_reaction(db, e, timestamp)
 
     # Create Stonk Order
-    HFSS.Economy.stonk_order(db, Discord.Snowflake(e.user_id), Utils.clean_emoji_string(e.emoji), Constants.call, stonk_count, stonk_price, duration, timestamp)
+    HFSS.Economy.stonk_order(db, Discord.Snowflake(e.user_id), Utils.emoji_string(e.emoji), Constants.call, stonk_count, stonk_price, duration, timestamp)
+    @debug "Making $(Constants.call) Order: User $(e.user_id) reacted to message $(e.message_id) in channel $(e.channel_id) in guild $(e.guild_id) with emoji $(e.emoji) [$(DB.get_emoji(db, e.emoji)[1].img)]"
+
+end
+
+function top(c::Client, m::Message, N::Int, db::SQLite.DB, epoch::DateTime, duration::Period)
+
+    reacts = table(DBInterface.execute(db, "SELECT * FROM $(DB.REACTS_TABLE) WHERE timestamp BETWEEN '$(epoch-duration)' AND '$epoch'"))
+
+    emoji_count = sort(filter(x -> x[2] > 0, [ (e, count(==(e), column(reacts,:stonk_ID))) for e in union(column(reacts,:stonk_ID)) ]); by = x -> x[2], rev=true)
+
+    top_string = ""
+
+    N = min(N, length(emoji_count))
+
+    for i = 1:N
+        top_string_i = "$i. $(emoji_count[i][1]) ($(emoji_count[i][2]))\n"
+        if length(top_string) + length(top_string_i) > MAX_MSG_LENGTH
+            N = i-1
+            break
+        else
+            top_string = "$top_string$top_string_i"
+        end
+    end
+
+    embed = Discord.Embed(;title=titlecase("Top $N Emoji For $duration"), description=top_string)
+
+    Discord.create_message(c, m.channel_id; embed=embed)
+end
+
+function top(c::Client, m::Message, N::Int, db::SQLite.DB)
+
+    member_id = m.author.id
+
+    reacts = table(DBInterface.execute(db, "SELECT * FROM $(DB.REACTS_TABLE) WHERE corp_ID = $member_id"))
+
+    emoji_count = sort(filter(x -> x[2] > 0, [ (e, count(==(e), column(reacts,:stonk_ID))) for e in union(column(reacts,:stonk_ID)) ]); by = x -> x[2], rev=true)
+
+    top_string = ""
+
+    N = min(N, length(emoji_count))
+
+    for i = 1:N
+        top_string_i = "$i. $(emoji_count[i][1]) ($(emoji_count[i][2]))\n"
+        if length(top_string) + length(top_string_i) > MAX_MSG_LENGTH
+            N = i-1
+            break
+        else
+            top_string = "$top_string$top_string_i"
+        end
+    end
+
+    embed = Discord.Embed(;title="$(m.author.username)'s Top $N Emoji", description=top_string)
+
+    Discord.create_message(c, m.channel_id; embed=embed)
 
 end
 
