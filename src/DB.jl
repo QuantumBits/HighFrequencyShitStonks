@@ -22,14 +22,18 @@ const EPOCHS_TABLE = "EPOCHS"
 const REACTS_TABLE = "REACTS"
 
 const ORDERS_TYPE_TABLE = "OrderType"
-const ORDERS_TABLE = "ORDERS" # List of open Stonk Market orders
-const FILLED_TABLE = "FILLED" # List of filled Stonk Market orders
-
+const ORDERS_TABLE = "ORDERS"   # List of open Stonk Market orders
+const FILLED_TABLE = "FILLED"   # List of filled Stonk Market orders
+const STONKS_TABLE = "STONKS"   # List of stonks owned
+const BANK_TABLE = "BANK"       # List of bank account transactions
+const LOANS_TALBE = "LOANS"     # List of outstanding loans
 
 function create(c::Discord.Client, default_guilds::Vector{Discord.Guild}; reset::Bool=false)::SQLite.DB
 
     # Connect to database
     db = SQLite.DB(DB.DB_PATH)
+
+    #= DISCORD DBs =#
 
     # List of guilds
     reset ? DBInterface.execute(db, "DROP TABLE IF EXISTS $(DB.GUILDS_TABLE);") : nothing
@@ -39,7 +43,7 @@ function create(c::Discord.Client, default_guilds::Vector{Discord.Guild}; reset:
             name TEXT
     );""")
     for guild in default_guilds
-        DBInterface.execute(db, "INSERT OR IGNORE INTO $(DB.GUILDS_TABLE) (id, name) VALUES ($(guild.id), '$(guild.name)')")
+        DBInterface.execute(db, "INSERT OR REPLACE INTO $(DB.GUILDS_TABLE) (id, name) VALUES ($(guild.id), '$(guild.name)')")
     end
 
     # List of channels
@@ -57,7 +61,7 @@ function create(c::Discord.Client, default_guilds::Vector{Discord.Guild}; reset:
         for channel in filter(c -> c.type == CT_GUILD_TEXT, fetchval(Discord.get_guild_channels(c, guild.id)))
             push!(SQL_VALUES, "($(channel.id),'$(channel.name)')")
         end
-        DBInterface.execute(db, "INSERT OR IGNORE INTO $(DB.CHANNELS_TABLE) (id, name) VALUES $(join(SQL_VALUES, ","))")
+        DBInterface.execute(db, "INSERT OR REPLACE INTO $(DB.CHANNELS_TABLE) (id, name) VALUES $(join(SQL_VALUES, ","))")
     end
 
     # List of humans
@@ -100,7 +104,7 @@ function create(c::Discord.Client, default_guilds::Vector{Discord.Guild}; reset:
 
     #= STONK MARKET DBs =#
 
-    # Static table for order types
+    # Static list of order types
     reset ? DBInterface.execute(db, "DROP TABLE IF EXISTS $(DB.ORDERS_TYPE_TABLE);") : nothing
     DBInterface.execute(db, """
         CREATE TABLE IF NOT EXISTS $(DB.ORDERS_TYPE_TABLE) (
@@ -109,7 +113,7 @@ function create(c::Discord.Client, default_guilds::Vector{Discord.Guild}; reset:
     ;""")
     DBInterface.execute(db, "INSERT OR IGNORE INTO $(DB.ORDERS_TYPE_TABLE) (name) VALUES $(join(["('$order')" for order in instances(Order)],","))")
 
-    # List of open orders
+    # List of stonk orders
     reset ? DBInterface.execute(db, "DROP TABLE IF EXISTS $(DB.ORDERS_TABLE);") : nothing
     DBInterface.execute(db, """
         CREATE TABLE IF NOT EXISTS $(DB.ORDERS_TABLE) (
@@ -120,9 +124,52 @@ function create(c::Discord.Client, default_guilds::Vector{Discord.Guild}; reset:
             price REAL,
             expiration TEXT,    -- DateTime when order expires
             timestamp TEXT,     -- DateTime when order created
+            open INTEGER CHECK(open >= 0 AND open <= 1), -- 0 = closed, 1 = open
             FOREIGN KEY (corp_ID) REFERENCES $(DB.HUMANS_TABLE) (id),
             FOREIGN KEY (stonk_ID) REFERENCES $(DB.EMOJIS_TABLE) (emoji)
             FOREIGN KEY (order_type) REFERENCES $(DB.ORDERS_TYPE_TABLE) (name)
+    );""")
+
+    #= BANK DBs =#
+
+    # List of stonks owned
+    reset ? DBInterface.execute(db, "DROP TABLE IF EXISTS $(DB.STONKS_TABLE);") : nothing
+    DBInterface.execute(db, """
+        CREATE TABLE IF NOT EXISTS $(DB.STONKS_TABLE) (
+            corp_ID INTEGER,
+            stonk_ID TEXT,
+            amount REAL,        -- Number of stonks to credit/debit account
+            timestamp TEXT,     -- DateTime when order created
+            FOREIGN KEY (corp_ID) REFERENCES $(DB.HUMANS_TABLE) (id),
+            FOREIGN KEY (stonk_ID) REFERENCES $(DB.EMOJIS_TABLE) (emoji)
+    );""")
+
+    # List of bank transactions
+    reset ? DBInterface.execute(db, "DROP TABLE IF EXISTS $(DB.BANK_TABLE);") : nothing
+    DBInterface.execute(db, """
+        CREATE TABLE IF NOT EXISTS $(DB.BANK_TABLE) (
+            corp_ID INTEGER,
+            amount REAL,        -- Amount to credit/debit account
+            timestamp TEXT,     -- DateTime when order created
+            description TEXT,   -- Description of transaction
+            FOREIGN KEY (corp_ID) REFERENCES $(DB.HUMANS_TABLE) (id)
+    );""")
+
+    # List of outstanding loans
+    reset ? DBInterface.execute(db, "DROP TABLE IF EXISTS $(DB.LOANS_TALBE);") : nothing
+    DBInterface.execute(db, """
+        CREATE TABLE IF NOT EXISTS $(DB.LOANS_TALBE) (
+            lender_ID INTEGER,
+            lendee_ID INTEGER,
+            principle REAL,     -- Original princple on loan
+            interest_rate REAL, -- Interest rate charged (%)
+            due_date TEXT,      -- Datetime when loan is due
+            principle_rem REAL, -- Remaining principle on loan
+            interest_rem REAL,  -- Reamining interest on loan
+            timestamp TEXT,     -- DateTime when order created
+            description TEXT,   -- Description of transaction
+            FOREIGN KEY (lender_ID) REFERENCES $(DB.HUMANS_TABLE) (id),
+            FOREIGN KEY (lendee_ID) REFERENCES $(DB.HUMANS_TABLE) (id)
     );""")
 
     return db
@@ -131,13 +178,13 @@ end
 
 #= GUILDS =#
 
-function get_guilds(db::SQLite.DB)
+function get_guilds(db::SQLite.DB)::IndexedTable
     return table(DBInterface.execute(db, "SELECT * FROM $(DB.GUILDS_TABLE)"))
 end
 
 #= CHANNELS =#
 
-function get_channels(db::SQLite.DB)
+function get_channels(db::SQLite.DB)::IndexedTable
     return table(DBInterface.execute(db, "SELECT * FROM $(DB.CHANNELS_TABLE)"))
 end
 
@@ -169,6 +216,7 @@ end
 function emoji_img_url(e::Discord.Emoji)::AbstractString
     return "$(DB.DISCORD_IMG_URL)$(e.id).$(e.animated ? "gif" : "png")"
 end
+
 function emoji_img_url(e::AbstractString)::AbstractString
     img_code = lowercase(join(string.(UInt.([ Char(xi) for xi in e ]), base=16),"-"))
     return "$(DB.TWEMOJI_IMG_URL)$img_code.png"
@@ -219,7 +267,7 @@ function load_emojis(c::Discord.Client, db::SQLite.DB)
 
 end
 
-function check_discord_emoji(db::SQLite.DB, e::Discord.Emoji)
+function add_discord_emoji(db::SQLite.DB, e::Discord.Emoji)
     # If emoji is a proper discord emoji
     if Utils.is_discord_emoji(e)
         # If emoji is not in the EMOJIS table
@@ -233,6 +281,7 @@ end
 function get_emojis(db::SQLite.DB, emojis::Vector{T})::IndexedTable where {T <: AbstractString}
     return table(DBInterface.execute(db, "SELECT * FROM $(DB.EMOJIS_TABLE) WHERE emoji IN ('$(join(emojis,"','"))') "))
 end
+
 function get_emoji(db::SQLite.DB, emoji::T)::IndexedTable where {T <: AbstractString}
     return table(DBInterface.execute(db, "SELECT * FROM $(DB.EMOJIS_TABLE) WHERE emoji = '$emoji'"))
 end
@@ -240,11 +289,12 @@ end
 function get_emojis(db::SQLite.DB, emojis::Vector{Discord.Emoji})::IndexedTable
     return get_emojis(db, Utils.emoji_string.(emojis))
 end
+
 function get_emoji(db::SQLite.DB, emoji::Discord.Emoji)::IndexedTable
     try
         return get_emoji(db, Utils.emoji_string(emoji))
     catch e
-        check_discord_emoji(db, emoji)
+        add_discord_emoji(db, emoji)
         return get_emoji(db, Utils.emoji_string(emoji))
     end
 end
@@ -255,9 +305,6 @@ end
 
 #= REACTS =#
 
-"""
-    Add reaction to list of reactions
-"""
 function add_reaction(db::SQLite.DB, e::MessageReactionAdd, timestamp::DateTime)
 
     corp_ID = e.user_id
@@ -265,14 +312,17 @@ function add_reaction(db::SQLite.DB, e::MessageReactionAdd, timestamp::DateTime)
     channel_ID = e.channel_id
     message_ID = e.message_id
 
+    # Check if emoji exists in database - if not yet, add to database!
+    @info ismissing(get_emoji(db, stonk_ID))
+    if ismissing(get_emoji(db, stonk_ID))
+        add_discord_emoji(db, e.emoji) # TODO: may not work for non-Discord-custom emoji that haven't been added yet
+    end
+
     DBInterface.execute(db, "INSERT OR IGNORE INTO $(DB.REACTS_TABLE) (timestamp, corp_ID, stonk_ID, channel_ID, message_ID) VALUES ('$timestamp', $corp_ID, '$stonk_ID', $channel_ID, $message_ID)")
 
 end
 
-"""
-    Get latest message reactions for each channel
-"""
-function get_latest_reacts(db::SQLite.DB)
+function get_latest_reacts(db::SQLite.DB)::IndexedTable
     return table(DBInterface.execute(db, "SELECT DISTINCT max(timestamp), channel_ID, message_ID FROM $(DB.REACTS_TABLE) GROUP BY channel_ID"))
 end
 
@@ -330,5 +380,16 @@ function load_reacts(c::Discord.Client, db::SQLite.DB, epoch::DateTime)
     end
 
 end
+
+function get_reacts(db::SQLite.DB)::IndexedTable
+    return table(DBInterface.execute(db, "SELECT * FROM $(DB.REACTS_TABLE)"))
+end
+
+#= BANK ACCOUNT =#
+
+function get_bank_transactions(db::SQLite.DB, corp_ID::Discord.Snowflake)
+    return table(DBInterface.execute(db, "SELECT * FROM $(DB.BANK_TABLE) WHERE corp_id = $corp_ID"))
+end
+
 
 end
