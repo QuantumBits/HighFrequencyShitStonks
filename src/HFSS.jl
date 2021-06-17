@@ -1,7 +1,7 @@
 module HFSS
 
 using HTTP, Discord, JSON
-using JuliaDB, DataFrames, CSV, SQLite
+using JuliaDB, SQLite, Tables
 using Dates, Plots, FileIO, Images
 using ColorTypes, FixedPointNumbers, DelimitedFiles, Printf
 
@@ -62,6 +62,10 @@ function setup(;epoch::DateTime=now(UTC)-Day(7), reset::Bool=false)
         (c, m, N) -> top(c, m, parse(Int, N), db, now(UTC), Year(1)),
         pattern=r"^(?i)hfss top\s*(\d+)\s*year$")
 
+    add_command!(c, :history,
+        (c, m, e) -> history(c, m, e, db),
+        pattern=r"^(?i)hfss history\s+(.+)$")
+
     #= Admin commands =#
 
     add_command!(c, :portfolio,
@@ -95,7 +99,7 @@ end
 
 function handle_reaction_add(c::Client, e::MessageReactionAdd, db::SQLite.DB)
     # Create a market order to buy one stonk
-    # The cheapest available market sell order will be compelted
+    # The cheapest available market sell order will be completed
 
     # Query Stonk Price
     stonk_price = HFSS.Economy.StonkBux(1.0) #! For now assume static price
@@ -109,6 +113,7 @@ function handle_reaction_add(c::Client, e::MessageReactionAdd, db::SQLite.DB)
     # Timestamp
     timestamp = fetchval(Discord.get_channel_message(c, e.channel_id, e.message_id)).timestamp
 
+    # Add Reaction
     HFSS.DB.add_reaction(db, e, timestamp)
 
     # Create Stonk Order
@@ -175,14 +180,18 @@ end
 function portfolio(c::Client, m::Message, db::SQLite.DB)
 
     N = 32
-    account = DataFrame(Emoji=rand(column(DB.get_emojis_all(db), :emoji), N), Volume=ceil.(10.0.^rand(0:6,N).*rand(N)), Price=10.0.^rand(0:9,N).*rand(N))
 
-    account[:Value] = account[:Price] .* account[:Volume]
+    account = table((
+        emoji   = rand(column(DB.get_emojis_all(db), :emoji), N),
+        volume  = ceil.(10.0.^rand(0:6,N).*rand(N)),
+        price   = 10.0.^rand(0:9,N).*rand(N)
+    ))
 
-    sort!(account, :Value; rev=true)
+    sort!(account; by = r -> r.volume * r.price, rev=true)
 
-    account = account[1:min(size(account, 1), N), :]
-    summary = [@sprintf("`%16d × %16.2f = %17.2f` %s",r[:Volume], r[:Price], r[:Value], r[:Emoji]) for r in eachrow(account)]
+    account_view = @view account[1:min(length(account), N), :]
+
+    summary = [@sprintf("`%16d × %16.2f = %17.2f` %s",r.volume, r.price, r.volume * r.price, r.emoji) for r in eachrow(account_view)]
 
     msg = Discord.Embed(;
         title = "$(m.author.username)'s Portfolio",
@@ -190,6 +199,38 @@ function portfolio(c::Client, m::Message, db::SQLite.DB)
 
     Discord.create_message(c, m.channel_id; embed=msg)
     @debug "Replying with Embed:\n$msg"
+
+end
+
+function history(c::Client, m::Message, e::AbstractString, db::SQLite.DB)
+
+    emoji = HFSS.Utils.emoji_string(e)
+
+    isemoji = length(DB.get_emoji(db, emoji)) > 0
+
+    @info "testing emoji: $emoji"
+
+
+    if isemoji
+
+        reacts = sort(filter(r -> r.stonk_ID == emoji, DB.get_reacts(db)); by = r -> r.timestamp)
+
+        png_file = tempname()
+
+        gr()
+
+        png(
+            plot(DateTime.(column(reacts,:timestamp)), 1:length(reacts), label=nothing, legend=:topleft),
+        png_file)
+
+        Discord.create_message(c, m.channel_id; content="Found string: $e ($isemoji)", file=open("$png_file.png"))
+
+    else
+
+        Discord.create_message(c, m.channel_id; content="Input \"$e\" is not a singular, recognized emoji.")
+
+    end
+
 
 end
 
@@ -202,6 +243,8 @@ function echo(c::Client, m::Message, msg::AbstractString)
 end
 
 #= DEPRECATED FUNCTIONS =# # TODO: UPDATE THEM
+
+#=
 
 function parse_emoji(msg::AbstractString)
 
@@ -275,5 +318,6 @@ function handle_at_me(c::Client, m::Message, msg::AbstractString)
 
 end
 
+=#
 
 end

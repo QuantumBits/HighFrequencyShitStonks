@@ -2,6 +2,14 @@
 
 In HFSS, players ARE corporations!
 
+Emoji can be purchased as "commodity" stonks!
+
+Corporations (players) can be invested in via stonks!
+
+Players can join forces and initiate corporate mergers and hostile takeovers!
+
+Bots also count as corporations! Except HFSS.
+
 ## Game Loop
 
 - Automatic Actions
@@ -10,14 +18,17 @@ In HFSS, players ARE corporations!
     - Every week, corporations post a "weekly review" detailing financial performance (revenue, costs, profit, dividends, etc)
     - Every time anyone uses an emoji, they automatically buy the cheapest available emoji from all corporations that have that emoji in stock
     - Recurring emoji production occurs at frequency set by corporation
+    - IPOs happen whenever a new emoji is detected
+        - Automatically distribute some (random?) number of emoji to (all?) users
+        - HFSS "sells" some number of these emojis at "zero" price, and whoever uses them first gets them?
 - Intentional Actions
-    - Put/Call stonks
-    - Issue/Buyback stonks
+    - Put/Call stonks/emoji
     - Buy/Sell emoji
-    - Lend/borrow
-    - Research emoji
+    - Lend/borrow $
+    - Research emoji manufacturing
     - Manufature emoji
     - Set emoji price
+    - Set your corporate dividend
 
 ## The Stonk Market
 
@@ -44,9 +55,9 @@ In HFSS, players ARE corporations!
     - `@USER` sees a message from HFSS if the initiating player has enough money and `@USER` has enough of that stock (otherwise no messages sent)
         - If `@USER` agrees, then transaction completes immediately (assuming within `<DURATION>` and have available stock)
 - Put ("Sell" contract)
-    - You agree to sell stock to another corporation/channel at a set upon price
+    - You agree to sell stock to another corporation/channel at a set upon price at a certain time
     - `HFSS PUT <@USER/#CHANNEL> :EMOJI: <COUNT> AT <PRICE> (WITHIN <DURATION>)`
-    - You immeidately set aside that amount of stock upon initiating the put
+    - You immediately set aside that amount of stock upon initiating the put
     - `#CHANNEL` or `@USER` sees a message from HFSS if initiating player has enough stock
         - When the first `@USER(S)` / If `@USER` chooses to agree, then complete the transation (assuming within `<DURATION>` and have available funds)
 - Issue Stock
